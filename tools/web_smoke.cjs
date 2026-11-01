@@ -24,6 +24,7 @@ const server = http.createServer((req,res)=>{
   page.on('pageerror',error=>errors.push(String(error)));
   page.on('console',message=>{if(/SCRIPT ERROR|Parse Error|Failed to load|Aborted\(/.test(message.text()))errors.push(message.text());});
   page.on('requestfailed',request=>errors.push(request.url()+': '+request.failure()?.errorText));
+  page.on('response',response=>{if(response.status()>=400)errors.push(`${response.status()} ${response.url()}`);});
   const url=process.env.GAME_URL||`http://127.0.0.1:${server.address().port}/physoul/`;
   await page.goto(url);
   await page.getByRole('button',{name:'プレイ',exact:true}).click();
