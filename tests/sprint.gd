@@ -17,6 +17,11 @@ func l3(down: bool) -> void:
 	event.button_index = JOY_BUTTON_LEFT_STICK
 	event.pressed = down
 	Input.parse_input_event(event)
+func lb(down: bool) -> void:
+	var event := InputEventJoypadButton.new()
+	event.button_index = JOY_BUTTON_LEFT_SHOULDER
+	event.pressed = down
+	Input.parse_input_event(event)
 func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
@@ -55,5 +60,32 @@ func run() -> void:
 	await frames(2)
 	check(not arena.player.sprinting and arena.player.drive_velocity == Vector2.ZERO,"attack preparation cancels sprint and input movement")
 	stick(0)
+	await frames(240)
+	arena.player.position = Vector2(-200,200)
+	arena.player.facing = 0
+	arena.player.stamina = 100
+	stick(1)
+	l3(true)
+	await frames(2)
+	l3(false)
+	var stamina_before: float = arena.player.stamina
+	lb(true)
+	await frames(2)
+	check(arena.player.weapon.active and arena.player.weapon.dash_mode and not arena.player.guard,"LB during sprint starts slash instead of guard")
+	check(not arena.player.sprinting and stamina_before-arena.player.stamina >= 28,"dash attack spends stamina and ends sprint")
+	stick(0)
+	var start: Vector2 = arena.player.position
+	await frames(3)
+	check(arena.player.position.distance_to(start) < 1,"dash attack windup stops ordinary movement")
+	await frames(50)
+	check(arena.player.position.x-start.x > 65 and arena.player.position.x-start.x < 78,"slash advances about 72px during strike")
+	await frames(70)
+	check(not arena.player.weapon.active and not arena.player.guard,"held LB neither repeats attack nor automatically guards")
+	lb(false)
+	await frames(2)
+	lb(true)
+	await frames(2)
+	check(arena.player.guard and not arena.player.weapon.active,"LB after release guards when not sprinting")
+	lb(false)
 	print("SPRINT COMPLETE: %d failures" % failures)
 	quit(failures)

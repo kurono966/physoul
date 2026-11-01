@@ -12,6 +12,17 @@ var boss_enraged := false
 var boss_attack_count := 0
 var sprint_requested := false
 var sprinting := false
+var dash_guard_latched := false
+
+func start_dash_attack() -> void:
+	if not sprinting or hp <= 0 or stun > 0 or attack_movement_locked() or roll > 0 or not spend(28): return
+	guard = false
+	sprinting = false
+	sprint_requested = false
+	dash_guard_latched = true
+	weapon.begin(false)
+	weapon.dash_mode = true
+	weapon.heavy_step_direction = forward()
 var awareness_enabled := false
 var home_position := Vector2.ZERO
 var alerted := false
@@ -309,7 +320,9 @@ func _physics_process(dt: float) -> void:
 			var axis := Vector2(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
 			movement = (axis.normalized()+arena.controls.movement()).limit_length(1).rotated(arena.camera.rotation)
 			if Input.is_action_just_pressed("pad_sprint"): sprint_requested = not sprint_requested
-			guard = (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_action_pressed("pad_guard")) and critical_time <= 0 and stamina > 0 and not weapon.active and roll <= 0 and kick_time <= 0.3
+			if not Input.is_action_pressed("pad_guard"): dash_guard_latched = false
+			if movement.length() >= 0.15 and Input.is_action_just_pressed("pad_guard"): start_dash_attack()
+			guard = (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or (Input.is_action_pressed("pad_guard") and not dash_guard_latched)) and critical_time <= 0 and stamina > 0 and not weapon.active and roll <= 0 and kick_time <= 0.3
 			if (Input.is_physical_key_pressed(KEY_SHIFT) or Input.is_action_just_pressed("pad_roll")) and not attack_movement_locked() and roll <= 0 and recovery <= 0.3 and spend(25):
 				roll = 0.46
 				arena.sound.play("roll", 35)

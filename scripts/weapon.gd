@@ -27,6 +27,7 @@ var combo_index := 0
 var swing_direction := 1.0
 var thrust_attack := false
 var heavy_mode := false
+var dash_mode := false
 var charged_heavy := false
 var player_followup := false
 var overhead_pitch := 0.0
@@ -71,8 +72,11 @@ func wave_step(dt: float) -> void:
 	if elapsed > windup+0.65: finish_attack()
 
 func attack_velocity() -> Vector2:
-	if not active or not heavy_mode or fighter.hp <= 0 or fighter.stun > 0: return Vector2.ZERO
+	if not active or (not heavy_mode and not dash_mode) or fighter.hp <= 0 or fighter.stun > 0: return Vector2.ZERO
 	var time_into_strike := elapsed-windup_duration()
+	if dash_mode:
+		if time_into_strike <= 0 or time_into_strike >= 0.22: return Vector2.ZERO
+		return heavy_step_direction * 72.0 * PI / (2*0.22) * sin(PI*time_into_strike/0.22)
 	if time_into_strike <= 0 or time_into_strike >= 0.16: return Vector2.ZERO
 	var distance := charged_step_distance if charged_heavy else heavy_step_distance
 	return heavy_step_direction * distance * PI / (2*0.16) * sin(PI*time_into_strike/0.16)
@@ -155,6 +159,7 @@ func windup_duration() -> float:
 		if combo_index > 0: return 0.38 if fighter.boss_enraged else 0.5
 		return 0.95 if fighter.boss_enraged else 1.15
 	if wave_mode: return 0.95
+	if dash_mode: return 0.18
 	if heavy_mode: return 0.28
 	if not fighter.enemy: return 0.16 if thrust_attack else 0.12
 	if combo_index > 0:
@@ -189,6 +194,7 @@ func _ready() -> void:
 	angle = fighter.facing + 0.55
 
 func begin(strong: bool) -> void:
+	dash_mode = false
 	wave_mode = false
 	wave_released = false
 	heavy_step_direction = Vector2.ZERO
