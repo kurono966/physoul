@@ -8,6 +8,24 @@ var shake := 0.0
 @export var stick_turn_speed := 2.1
 var trigger_was_down := false
 var left_trigger_was_down := false
+var target_switch_latched := false
+
+func switch_target(direction: float) -> void:
+	if not locked or direction == 0: return
+	var current: Vector2 = arena.opponent.global_position
+	var best: CharacterBody2D = null
+	var best_score := INF
+	for candidate in arena.get_children():
+		if not candidate is CharacterBody2D or candidate == arena.player or candidate == arena.opponent: continue
+		if not candidate.enemy or candidate.hp <= 0 or not arena.can_observe(candidate): continue
+		if candidate.global_position.distance_to(arena.player.global_position) > 700: continue
+		var delta: Vector2 = (candidate.global_position-current).rotated(-rotation)
+		if delta.x*direction <= 8: continue
+		var score: float = absf(delta.x)+absf(delta.y)*0.25
+		if score < best_score:
+			best_score = score
+			best = candidate
+	if best != null: arena.opponent = best
 
 func _ready() -> void:
 	ignore_rotation = false
@@ -77,8 +95,15 @@ func _physics_process(dt: float) -> void:
 			player.heavy_charge += dt
 			if player.heavy_charge >= 0.65: player.start_heavy(true)
 	trigger_was_down = trigger_down
-	if not locked:
-		heading += arena.controls.look()*stick_turn_speed*dt
+	var look: float = arena.controls.look()
+	if absf(look) < 0.2: target_switch_latched = false
+	if locked:
+		if absf(look) >= 0.6 and not target_switch_latched:
+			target_switch_latched = true
+			switch_target(signf(look))
+	else:
+		target_switch_latched = absf(look) >= 0.6
+		heading += look*stick_turn_speed*dt
 	if player.charge > 0:
 		if player.hp <= 0 or player.stun > 0 or player.roll > 0 or player.guard or player.kick_time > 0.3:
 			player.charge = 0

@@ -50,7 +50,7 @@ func paint() -> void:
 	if arena.controls.help_visible:
 		display.draw_rect(Rect2(0,size.y-80,size.x,80),Color(0.025,0.04,0.055,0.9))
 		if arena.controls.using_pad:
-			text_at(Vector2(30,size.y-50),"LS Move  RS Turn  RB Slash/Hold Thrust  RT Overhead  LT Wave  LB Guard / Sprint Attack",15)
+			text_at(Vector2(30,size.y-50),"LS Move  RS Turn/Lock Target  RB Slash/Hold Thrust  RT Overhead  LT Wave  LB Guard/Sprint Attack",15)
 			text_at(Vector2(30,size.y-23),"L3 Sprint  A Roll  X Kick  Y Interact  R3 Lock  D-pad Up New Map  Start Retry  Back Help",16)
 		else:
 			text_at(Vector2(30,size.y-50),"WASD Move   Mouse Turn   LMB Click: Slash / Hold: Prepare + Auto Thrust   RMB Guard",16)

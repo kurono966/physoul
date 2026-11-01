@@ -37,6 +37,7 @@ jobs:
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/corpses.gd
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/sprint.gd
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/vision.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/lock_switch.gd
           mkdir -p build/web
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --export-release Web build/web/index.html
           touch build/web/.nojekyll
