@@ -15,6 +15,14 @@ func run() -> void:
 		arena.map_seed = 73491
 	root.add_child(arena)
 	for i in 20: await process_frame
+	if "--ell" in OS.get_cmdline_user_args():
+		for room: Dictionary in arena.dungeon.rooms:
+			if room.shape == "ell":
+				arena.player.position = room.center+Vector2(0,100)
+				arena.camera.position = arena.player.position+Vector2(0,-145)
+				arena.update_exploration()
+				break
+		await process_frame
 	if "--boss" in OS.get_cmdline_user_args():
 		arena.select_enemy(3)
 		arena.opponent.position = Vector2(0,-20)

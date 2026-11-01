@@ -102,7 +102,9 @@ func draw_minimap() -> void:
 		var point := origin+Vector2(room.cell)*50
 		var color := Color("648477") if room.cleared else Color("b67560")
 		if room.kind == "gate": color = Color("d9ba7d")
-		display.draw_rect(Rect2(point-Vector2(9,7),Vector2(18,14)),color)
+		for tile: Vector2i in room.tiles:
+			var local_tile: Vector2i = tile-room.cell*arena.DungeonGenerator.STEP
+			display.draw_rect(Rect2(point+Vector2(local_tile)*1.6,Vector2.ONE*1.6),color)
 		if i == arena.current_room: display.draw_rect(Rect2(point-Vector2(12,10),Vector2(24,20)),Color("bce8e0"),false,2)
 
 func draw_target_marker() -> void:

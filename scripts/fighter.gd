@@ -252,11 +252,32 @@ func receive(impact: float, damage: float, direction: Vector2) -> void:
 		break_guard()
 	if hp <= 0:
 		arena.sound.play("death", 70)
-		guard = false
-		weapon.cancel()
+		make_corpse()
 		arena.event_text = "VICTORY — R: restart" if enemy else "YOU DIED — R: restart"
 
+func make_corpse() -> void:
+	collision_layer = 0
+	collision_mask = 0
+	shield.collision_layer = 0
+	weapon.cancel()
+	weapon.blade.collision_layer = 0
+	guard = false
+	riposte_available = false
+	charge = 0
+	heavy_charge = 0
+	critical_time = 0
+	kick_time = 0
+	kick_pending = false
+	roll = 0
+	drive_velocity = Vector2.ZERO
+	impulse_velocity = Vector2.ZERO
+	velocity = Vector2.ZERO
+
 func _physics_process(dt: float) -> void:
+	if hp <= 0:
+		make_corpse()
+		queue_redraw()
+		return
 	stun = maxf(0, stun - dt)
 	if stun <= 0: riposte_available = false
 	update_critical(dt)

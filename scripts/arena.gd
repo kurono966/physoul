@@ -54,6 +54,7 @@ func interact() -> void:
 
 func update_exploration() -> void:
 	if opponent.hp <= 0 and current_room >= 0:
+		opponent.make_corpse()
 		var active: Dictionary = dungeon.rooms[current_room]
 		if active.kind == "battle" and not active.cleared:
 			active.cleared = true
@@ -63,7 +64,8 @@ func update_exploration() -> void:
 	if player.critical_time > 0: return
 	for i in dungeon.rooms.size():
 		var room: Dictionary = dungeon.rooms[i]
-		if not room.rect.grow(-5).has_point(player.position) or i == current_room: continue
+		var tile := Vector2i(floori(player.position.x/60),floori(player.position.y/60))
+		if not room.tiles.has(tile) or i == current_room: continue
 		if current_room >= 0 and dungeon.rooms[current_room].kind == "battle" and not dungeon.rooms[current_room].cleared:
 			dungeon.rooms[current_room].hp = opponent.hp
 		current_room = i
@@ -273,9 +275,13 @@ func draw_dungeon() -> void:
 		draw_rect(Rect2(origin,Vector2.ONE*60),Color("1b2932"))
 		draw_rect(Rect2(origin+Vector2.ONE,Vector2.ONE*58),Color("202f39").darkened(0.06 if (tile.x+tile.y)%2 == 0 else 0))
 	for room: Dictionary in dungeon.rooms:
-		var rect: Rect2 = room.rect
-		draw_rect(rect.grow(-12),Color("3d515a"),false,2)
-		draw_rect(rect.grow(-20),Color(0.3,0.45,0.5,0.16),false,1)
+		for tile: Vector2i in room.tiles:
+			var origin := Vector2(tile)*60
+			for direction in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
+				if dungeon.floors.has(tile+direction): continue
+				var normal := Vector2(direction)
+				var edge := origin+Vector2(30,30)+normal*25
+				draw_line(edge-normal.orthogonal()*27,edge+normal.orthogonal()*27,Color("405863"),1.5,true)
 		if room.kind in ["gate","shrine"]:
 			var color := Color("e1b777") if room.kind == "gate" else Color("81cfbc")
 			if room.used: color = color.darkened(0.65)

@@ -3,6 +3,18 @@ const TILE := 60
 const STEP := Vector2i(15,13)
 const ROOM_SIZE := Vector2(720,600)
 
+static func room_tiles(shape: String, half_width: int, half_height: int) -> Dictionary:
+	var tiles: Dictionary = {}
+	for x in range(-half_width,half_width):
+		for y in range(-half_height,half_height):
+			var ax := absf(x+0.5)
+			var ay := absf(y+0.5)
+			if shape == "cross" and ax >= 2 and ay >= 2: continue
+			if shape == "ell" and x >= 2 and y <= -2: continue
+			if shape == "octagon" and ax >= half_width-2 and ay >= half_height-2: continue
+			tiles[Vector2i(x,y)] = true
+	return tiles
+
 static func generate(seed_value: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
@@ -26,17 +38,57 @@ static func generate(seed_value: int) -> Dictionary:
 	var rooms: Array[Dictionary] = []
 	var floors: Dictionary = {}
 	var crates: Array[Vector2] = []
+	var shapes := ["hall","tower","cross","ell","octagon","chamber"]
+	for i in range(shapes.size()-1,0,-1):
+		var swap := rng.randi_range(0,i)
+		var saved: String = shapes[i]
+		shapes[i] = shapes[swap]
+		shapes[swap] = saved
 	for i in cells.size():
 		var cell := cells[i]
 		var center := Vector2(cell*STEP)*TILE
 		var kind := "start" if i == 0 else ("gate" if cell == gate else "battle")
 		if i == 1 and cell != gate: kind = "shrine"
-		rooms.append({"cell":cell,"center":center,"rect":Rect2(center-ROOM_SIZE/2,ROOM_SIZE),"kind":kind,"enemy":i%3,"hp":-1.0,"cleared":kind != "battle","visited":false,"used":false})
-		for x in range(-6,6):
-			for y in range(-5,5): floors[cell*STEP+Vector2i(x,y)] = true
+		var shape: String = "octagon" if i == 0 else shapes[(i-1)%shapes.size()]
+		var half_width := 6
+		var half_height := 5
+		if shape == "hall": half_height = 3
+		if shape == "tower": half_width = 3
+		if shape == "chamber":
+			half_width = rng.randi_range(4,6)
+			half_height = rng.randi_range(3,5)
+		var local_tiles := room_tiles(shape,half_width,half_height)
+		if shape == "ell":
+			var mirror_x := rng.randf() < 0.5
+			var mirror_y := rng.randf() < 0.5
+			var mirrored: Dictionary = {}
+			for tile: Vector2i in local_tiles:
+				mirrored[Vector2i(-tile.x-1 if mirror_x else tile.x,-tile.y-1 if mirror_y else tile.y)] = true
+			local_tiles = mirrored
+		var tiles: Dictionary = {}
+		for tile: Vector2i in local_tiles:
+			var global_tile := cell*STEP+tile
+			tiles[global_tile] = true
+			floors[global_tile] = true
+		var size := Vector2(half_width,half_height)*2*TILE
+		rooms.append({"cell":cell,"center":center,"rect":Rect2(center-size/2,size),"tiles":tiles,"shape":shape,"kind":kind,"enemy":i%3,"hp":-1.0,"cleared":kind != "battle","visited":false,"used":false})
 		if kind == "battle":
-			crates.append(center+Vector2(-220,180))
-			crates.append(center+Vector2(220,-180))
+			var candidates: Array[Vector2] = []
+			for tile: Vector2i in local_tiles:
+				var offset := (Vector2(tile)+Vector2.ONE*0.5)*TILE
+				if offset.length() < 190 or absf(offset.x) < 80 or absf(offset.y) < 80: continue
+				var clear := true
+				for x in range(-1,2):
+					for y in range(-1,2):
+						if not local_tiles.has(tile+Vector2i(x,y)): clear = false
+				if clear: candidates.append(center+offset)
+			var last := Vector2.INF
+			for pick in 2:
+				if candidates.is_empty(): break
+				var pos := candidates.pop_at(rng.randi_range(0,candidates.size()-1)) as Vector2
+				if pos.distance_to(last) < 120: continue
+				crates.append(pos)
+				last = pos
 	for edge in links:
 		var start: Vector2i = edge[0]*STEP
 		var finish: Vector2i = edge[1]*STEP

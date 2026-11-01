@@ -12,6 +12,7 @@ func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
 	var valid := true
+	var shapes: Dictionary = {}
 	for seed_value in 30:
 		var layout := Generator.generate(seed_value)
 		if layout != Generator.generate(seed_value) or layout.rooms.size() != 8: valid = false
@@ -27,7 +28,16 @@ func run() -> void:
 					visited[next] = true
 					pending.append(next)
 		if visited.size() != layout.floors.size(): valid = false
+		for room: Dictionary in layout.rooms:
+			shapes[room.shape] = true
+			var spawn_tile := Vector2i(room.cell*Generator.STEP)+Vector2i(0,-1)
+			if not room.tiles.has(spawn_tile): valid = false
+			if room.kind == "battle":
+				for crate: Vector2 in layout.crates:
+					var tile := Vector2i(floori(crate.x/60),floori(crate.y/60))
+					if not layout.floors.has(tile): valid = false
 	check(valid,"30 seeds generate reproducible connected eight-room dungeons")
+	check(shapes.size() == 6,"six room silhouettes appear with safe spawn tiles")
 	var arena = load("res://arena.tscn").instantiate()
 	arena.map_seed = 12345
 	root.add_child(arena)

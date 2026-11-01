@@ -34,6 +34,7 @@ jobs:
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --editor --path . --quit
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/maps.gd
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/dungeon.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/corpses.gd
           mkdir -p build/web
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --export-release Web build/web/index.html
           touch build/web/.nojekyll
