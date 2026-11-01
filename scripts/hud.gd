@@ -33,11 +33,12 @@ func paint() -> void:
 	if arena.camera.locked and arena.opponent.hp > 0:
 		draw_target_marker()
 	var panel := Color(0.025,0.04,0.055,0.76)
-	display.draw_style_box(panel_style(panel),Rect2(16,16,250,110))
+	display.draw_style_box(panel_style(panel),Rect2(16,16,250,124))
 	text_at(Vector2(30,39),"PHYSOUL",16,Color("e5d4ae"))
 	compact_bar(Vector2(30,54),"HP",arena.player.hp,Color("c87168"))
 	compact_bar(Vector2(30,76),"STAMINA",arena.player.stamina,Color("72c8ab"))
 	compact_bar(Vector2(30,98),"POSTURE",arena.player.posture,Color("e2ba72"))
+	text_at(Vector2(30,127),"FLASK %d/%d / %s" % [arena.player.flasks,arena.player.max_flasks,"X" if arena.controls.using_pad else "DOWN"],12,Color("91dcc6") if arena.player.flasks > 0 else Color("73838b"))
 	if (arena.opponent.hp > 0 and arena.can_observe(arena.opponent)) or (not arena.exploring() and arena.opponent.hp <= 0):
 		display.draw_style_box(panel_style(panel),Rect2(size.x-266,16,250,110))
 		var right := size.x-252
@@ -50,11 +51,11 @@ func paint() -> void:
 	if arena.controls.help_visible:
 		display.draw_rect(Rect2(0,size.y-80,size.x,80),Color(0.025,0.04,0.055,0.9))
 		if arena.controls.using_pad:
-			text_at(Vector2(30,size.y-50),"LS Move  RS Turn/Lock Target  RB Slash/Hold Thrust  RT Overhead  LT Wave  LB Guard/Sprint Attack",15)
-			text_at(Vector2(30,size.y-23),"L3 Sprint  A Roll  X Kick  Y Interact  R3 Lock  D-pad Up New Map  Start Retry  Back Help",16)
+			text_at(Vector2(30,size.y-50),"LS Move  RS Turn/Lock Target  RB Slash/Hold Thrust/Sprint Attack  RT Overhead  LT Wave  LB Guard",15)
+			text_at(Vector2(30,size.y-23),"L3 Sprint  A Roll  B Kick  X Heal  Y Interact  R3 Lock  D-pad Up New Map  Start Retry  Back Help",16)
 		else:
 			text_at(Vector2(30,size.y-50),"WASD Move   Mouse Turn   LMB Click: Slash / Hold: Prepare + Auto Thrust   RMB Guard",16)
-			text_at(Vector2(30,size.y-23),"SHIFT Roll  SPACE Kick  E Interact / Gate  TAB Lock  M New Map  R Retry  ESC Cursor  H Help",16)
+			text_at(Vector2(30,size.y-23),"SHIFT Roll  SPACE Kick  DOWN Heal  E Interact / Rest  TAB Lock  M New Map  R Retry  ESC Cursor  H Help",16)
 	text_at(Vector2(30,151),arena.event_text,14,Color("e5d4ae"))
 	if arena.player.sprinting: text_at(Vector2(195,39),"SPRINT",11,Color("91dcc6"))
 	text_at(Vector2(30,172),"MAP %d  /  %s" % [arena.map_seed,"D-PAD UP: NEW" if arena.controls.using_pad else "M: NEW  ·  R: RETRY"],11,Color("91a7af"))
@@ -67,8 +68,8 @@ func paint() -> void:
 				var action := "Y" if arena.controls.using_pad else "E"
 				if room.kind == "gate":
 					text_at(Vector2(size.x/2-150,size.y-210),action+" / ENTER BOSS ARENA" if arena.seals >= 3 else "BOSS GATE / NEED 3 SEALS",18,Color("e5d4ae"))
-				elif room.kind == "shrine" and not room.used:
-					text_at(Vector2(size.x/2-120,size.y-210),action+" / RESTORE HP",18,Color("91dcc6"))
+				elif room.kind in ["start","shrine"]:
+					text_at(Vector2(size.x/2-150,size.y-210),action+" / REST · REFILL FLASKS",18,Color("91dcc6"))
 	if OS.has_feature("web") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not arena.controls.using_pad:
 		text_at(Vector2(size.x/2-160,size.y/2-60),"CLICK TO CAPTURE MOUSE / ESC TO RELEASE",15,Color("e5d4ae"))
 	if arena.player.just_guard_flash > 0:

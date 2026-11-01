@@ -38,6 +38,14 @@ jobs:
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/sprint.gd
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/vision.gd
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/lock_switch.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/ai_obstacles.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/player_slash.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/wolf.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/healing.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/terrain_combat.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/encounters.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/reptile.gd
+          /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --script tests/damage_effects.gd
           mkdir -p build/web
           /tmp/godot/Godot_v4.6.3-stable_linux.x86_64 --headless --path . --export-release Web build/web/index.html
           touch build/web/.nojekyll

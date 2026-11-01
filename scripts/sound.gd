@@ -10,7 +10,7 @@ var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	rng.seed = 71281
-	for kind in ["swing", "heavy", "flesh", "metal", "stone", "wood", "break", "roll", "kick", "death", "just_guard"]:
+	for kind in ["swing", "heavy", "flesh", "metal", "stone", "wood", "break", "roll", "kick", "death", "just_guard", "heal"]:
 		clips[kind] = synthesize(kind)
 	for i in VOICES:
 		var voice := AudioStreamPlayer.new()
@@ -39,6 +39,7 @@ func synthesize(kind: String) -> AudioStreamWAV:
 	if kind in ["metal", "break", "death"]: duration = 0.65
 	if kind == "heavy": duration = 0.38
 	if kind == "just_guard": duration = 0.72
+	if kind == "heal": duration = 0.65
 	var count := int(duration * RATE)
 	var pcm := PackedByteArray()
 	pcm.resize(count * 2)
@@ -50,6 +51,9 @@ func synthesize(kind: String) -> AudioStreamWAV:
 		filtered = lerpf(filtered, noise, 0.18)
 		var value := 0.0
 		match kind:
+			"heal":
+				value = (sin(TAU*392*t)*0.3+sin(TAU*493.88*t)*0.18)*sin(PI*u)*exp(-t*3)
+				if t > 0.12: value += sin(TAU*659.25*(t-0.12))*0.2*sin(PI*clampf((t-0.12)/0.53,0,1))
 			"just_guard":
 				# Soft strike, tuned D/A/D chime and a delayed upper shimmer.
 				var attack := 1-exp(-t*350)

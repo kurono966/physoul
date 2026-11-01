@@ -32,6 +32,24 @@ static func generate(seed_value: int) -> Dictionary:
 		cells.append(edge[1])
 		links.append(edge)
 		distances[edge[1]] = int(distances[edge[0]])+1
+	# One extra connection creates a useful return route rather than only dead ends.
+	var loops: Array = []
+	for cell in cells:
+		for direction in [Vector2i.RIGHT,Vector2i.DOWN]:
+			var next: Vector2i = cell+direction
+			if cells.has(next) and not links.has([cell,next]) and not links.has([next,cell]): loops.append([cell,next])
+	if not loops.is_empty(): links.append(loops[rng.randi_range(0,loops.size()-1)])
+	distances = {Vector2i.ZERO:0}
+	var pending: Array[Vector2i] = [Vector2i.ZERO]
+	var cursor := 0
+	while cursor < pending.size():
+		var cell := pending[cursor]
+		cursor += 1
+		for edge in links:
+			var next: Vector2i = edge[1] if edge[0] == cell else edge[0]
+			if cell not in edge or distances.has(next): continue
+			distances[next] = int(distances[cell])+1
+			pending.append(next)
 	var gate := cells[1]
 	for cell in cells:
 		if int(distances[cell]) > int(distances[gate]): gate = cell
@@ -44,6 +62,7 @@ static func generate(seed_value: int) -> Dictionary:
 		var saved: String = shapes[i]
 		shapes[i] = shapes[swap]
 		shapes[swap] = saved
+	var battle_index := 0
 	for i in cells.size():
 		var cell := cells[i]
 		var center := Vector2(cell*STEP)*TILE
@@ -71,8 +90,33 @@ static func generate(seed_value: int) -> Dictionary:
 			tiles[global_tile] = true
 			floors[global_tile] = true
 		var size := Vector2(half_width,half_height)*2*TILE
-		rooms.append({"cell":cell,"center":center,"rect":Rect2(center-size/2,size),"tiles":tiles,"shape":shape,"kind":kind,"enemy":i%3,"hp":-1.0,"cleared":kind != "battle","visited":false,"used":false})
+		var escorts: Array = []
+		if kind == "battle" and battle_index in [1,2,4]: escorts.append({"kind":"warden" if battle_index == 2 else ("reptile" if battle_index == 4 else "wolf"),"position":center+Vector2(-120,90)})
+		rooms.append({"cell":cell,"center":center,"rect":Rect2(center-size/2,size),"tiles":tiles,"shape":shape,"kind":kind,"enemy":[0,3,2,1][battle_index%4],"escorts":escorts,"hp":-1.0,"cleared":kind != "battle","visited":false,"used":false})
 		if kind == "battle":
+			battle_index += 1
+			# Small pillar islands only where a full ring of walkable floor remains.
+			var pillar_candidates: Array[Vector2i] = []
+			for tile: Vector2i in local_tiles:
+				var offset := (Vector2(tile)+Vector2.ONE*0.5)*TILE
+				if absf(offset.x) < 150 or absf(offset.y) < 150: continue
+				var clear := true
+				for x in range(-1,2):
+					for y in range(-1,2):
+						if not local_tiles.has(tile+Vector2i(x,y)): clear = false
+				if clear: pillar_candidates.append(tile)
+			var chosen: Array[Vector2i] = []
+			for pick in 2:
+				if pillar_candidates.is_empty(): break
+				var tile: Vector2i = pillar_candidates.pop_at(rng.randi_range(0,pillar_candidates.size()-1))
+				var separated := true
+				for other in chosen:
+					if Vector2(tile-other).length() < 3: separated = false
+				if not separated: continue
+				chosen.append(tile)
+				local_tiles.erase(tile)
+				tiles.erase(cell*STEP+tile)
+				floors.erase(cell*STEP+tile)
 			var candidates: Array[Vector2] = []
 			for tile: Vector2i in local_tiles:
 				var offset := (Vector2(tile)+Vector2.ONE*0.5)*TILE

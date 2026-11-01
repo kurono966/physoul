@@ -33,6 +33,12 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if OS.has_feature("web") else Input.MOUSE_MODE_CAPTURED
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and not OS.has_feature("web"):
+		if event.keycode == KEY_F11 or (event.keycode == KEY_ENTER and event.alt_pressed):
+			var mode := DisplayServer.window_get_mode()
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if mode in [DisplayServer.WINDOW_MODE_FULLSCREEN,DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN] else DisplayServer.WINDOW_MODE_FULLSCREEN)
+			get_viewport().set_input_as_handled()
+			return
 	if OS.has_feature("web") and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
@@ -48,6 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_TAB: locked = not locked
 			KEY_F3: arena.debug = not arena.debug
 			KEY_H: arena.controls.help_visible = not arena.controls.help_visible
+			KEY_DOWN: arena.player.start_heal()
 			KEY_R: arena.call_deferred("restart_stage")
 			KEY_E: arena.call_deferred("interact")
 			KEY_N: arena.next_enemy()
@@ -57,12 +64,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_4:
 				if arena.exploring() and arena.debug: arena.call_deferred("change_stage",true)
 				elif not arena.exploring(): arena.select_enemy(3)
+			KEY_5:
+				if not arena.exploring(): arena.select_enemy(4)
+			KEY_6:
+				if not arena.exploring(): arena.select_enemy(5)
 	var pad_attack := event is InputEventJoypadButton and event.is_action("pad_attack")
 	if pad_attack or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED):
 		if event.pressed:
 			var player = arena.player
+			if pad_attack and player.sprinting:
+				player.start_dash_attack()
+				return
 			if player.start_critical(): return
-			if player.heavy_charge <= 0 and player.critical_time <= 0 and player.hp > 0 and player.stun <= 0 and player.roll <= 0 and player.kick_time <= 0.3 and not player.guard and not player.weapon.active and player.weapon.cooldown <= 0:
+			if player.healing_time <= 0 and player.heavy_charge <= 0 and player.critical_time <= 0 and player.hp > 0 and player.stun <= 0 and player.roll <= 0 and player.kick_time <= 0.3 and not player.guard and not player.weapon.active and player.weapon.cooldown <= 0:
 				player.charge = 0.001
 		else:
 			if arena.player.charge > 0:
@@ -71,6 +85,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE and event.pressed and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		locked = not locked
 	if event is InputEventJoypadButton and event.pressed:
+		if event.is_action("pad_heal"): arena.player.start_heal()
 		if event.button_index == JOY_BUTTON_BACK: arena.controls.help_visible = not arena.controls.help_visible
 		if event.button_index == JOY_BUTTON_DPAD_UP: arena.call_deferred("regenerate_map")
 		if event.button_index == JOY_BUTTON_Y: arena.call_deferred("interact")

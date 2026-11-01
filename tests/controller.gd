@@ -70,10 +70,10 @@ func run() -> void:
 	check(arena.player.roll > 0,"A triggers roll")
 	button(JOY_BUTTON_A,false)
 	arena.player.roll = 0
-	button(JOY_BUTTON_X,true)
+	button(JOY_BUTTON_B,true)
 	await frames(2)
-	check(arena.player.kick_time > 0,"X triggers kick")
-	button(JOY_BUTTON_X,false)
+	check(arena.player.kick_time > 0,"B triggers kick")
+	button(JOY_BUTTON_B,false)
 	arena.player.kick_time = 0
 	arena.player.kick_pending = false
 	button(JOY_BUTTON_RIGHT_SHOULDER,true)
@@ -88,5 +88,22 @@ func run() -> void:
 	await frames(2)
 	check(arena.player.critical_time > 0,"RB triggers adjacent critical")
 	button(JOY_BUTTON_RIGHT_SHOULDER,false)
+	arena.player.set_physics_process(false)
+	arena.camera.set_physics_process(false)
+	arena.player.weapon.set_physics_process(false)
+	arena.player.critical_time = 0
+	arena.player.charge = 0
+	arena.player.position = Vector2(0,250)
+	arena.opponent.position = Vector2(0,-300)
+	for attack_heading in [-3.12,3.12,-9.4,9.4]:
+		arena.player.facing = attack_heading
+		arena.player.weapon.angle = attack_heading+0.55+TAU*3
+		arena.player.weapon.begin(false)
+		for i in 14: arena.player.weapon._physics_process(1.0/120)
+		check(absf(arena.player.weapon.angle-(attack_heading-1.2)) < 0.1,"RB windup takes correct arc across wrapped heading %.2f" % attack_heading)
+		for i in 6: arena.player.weapon._physics_process(1.0/120)
+		check(arena.player.weapon.active,"RB strike does not end early across heading %.2f" % attack_heading)
+		for i in 100: arena.player.weapon._physics_process(1.0/120)
+		check(not arena.player.weapon.active,"RB slash completes across heading %.2f" % attack_heading)
 	print("CONTROLLER COMPLETE: %d failures" % failures)
 	quit(failures)

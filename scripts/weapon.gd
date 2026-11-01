@@ -28,6 +28,140 @@ var swing_direction := 1.0
 var thrust_attack := false
 var heavy_mode := false
 var dash_mode := false
+var swing_heading := 0.0
+var dash_previous_origin := Vector2.ZERO
+var enemy_motion := "slash"
+var enemy_attack_sequence := 0
+var obstacle_normal := Vector2.ZERO
+
+func is_player_slash() -> bool:
+	return not fighter.enemy and not thrust_attack and not heavy_mode and not dash_mode and not wave_mode
+
+func bite_step(dt: float) -> void:
+	var old_origin := dash_previous_origin
+	elapsed += dt
+	angle = fighter.facing
+	if elapsed <= windup_duration():
+		if elapsed+dt >= windup_duration() and not motion_clear("bite"):
+			cancel()
+			fighter.avoid_blocked_attack(obstacle_normal)
+	elif elapsed <= windup_duration()+0.22:
+		if not swing_sounded:
+			heavy_step_direction = fighter.forward()
+			swing_heading = fighter.facing
+			swing_sounded = true
+			fighter.arena.sound.play("swing",55)
+		angle = swing_heading
+		thrust_speed = 350
+		omega = 0
+		if sweep(angle,angle,old_origin):
+			thrust_speed = 0
+			return
+	else:
+		thrust_speed = 0
+	dash_previous_origin = global_position
+	if active and elapsed >= windup_duration()+0.4: finish_attack()
+
+func slash_step(dt: float) -> void:
+	elapsed += dt
+	var windup := windup_duration()
+	position = Vector2.ZERO
+	extension = 0
+	thrust_speed = 0
+	if elapsed <= windup:
+		angle = lerpf(windup_start,swing_heading-1.2,smoothstep(0,1,elapsed/windup))
+		omega = 0
+	elif elapsed <= windup+0.22:
+		if not swing_sounded:
+			fighter.arena.sound.play("swing",45)
+			swing_sounded = true
+		var next := swing_heading-1.2+2.4*smoothstep(0,1,clampf((elapsed-windup)/0.22,0,1))
+		omega = maxf(0,(next-angle)/dt)
+		var divisions := maxi(1,ceili(absf(next-angle)*length/2))
+		var step := (next-angle)/divisions
+		for i in divisions:
+			if sweep(angle,angle+step): return
+			angle += step
+		trail.append(Vector2.RIGHT.rotated(angle)*length)
+		if trail.size() > 10: trail.pop_front()
+	else:
+		omega = 0
+		angle = lerpf(swing_heading+1.2,swing_heading+0.55,smoothstep(0,1,clampf((elapsed-windup-0.22)/0.18,0,1)))
+		if not trail.is_empty(): trail.pop_front()
+	if elapsed >= windup+0.4:
+		cancel()
+		cooldown = 0.12
+
+func enemy_motions() -> Array:
+	if fighter.enemy_kind in ["wolf","reptile"]: return ["bite"]
+	if fighter.enemy_kind == "spear": return ["thrust","backhand","slash"]
+	if fighter.enemy_kind == "brute": return ["overhead","backhand","slash"]
+	return ["slash","backhand","thrust","overhead"]
+
+func path_segment_clear(from: Vector2, to: Vector2) -> bool:
+	var query := PhysicsRayQueryParameters2D.create(from,to,1|4)
+	var result := get_world_2d().direct_space_state.intersect_ray(query)
+	if result.is_empty(): return true
+	obstacle_normal = result.normal
+	return false
+
+func motion_clear(motion: String) -> bool:
+	var origin := fighter.global_position
+	var f: Vector2 = fighter.forward()
+	if motion in ["thrust","overhead","bite"]:
+		var reach := length+((70 if fighter.enemy_kind == "reptile" else 105) if motion == "bite" else (43 if motion == "thrust" else 0))
+		for offset in [-4,0,4]:
+			if not path_segment_clear(origin+f*20+f.orthogonal()*offset,origin+f*reach+f.orthogonal()*offset): return false
+		return true
+	var start := -1.65 if motion == "slash" else 1.2
+	var end := 2.0 if motion == "slash" else -1.55
+	for i in 25:
+		var direction := Vector2.RIGHT.rotated(fighter.facing+lerpf(start,end,i/24.0))
+		if not path_segment_clear(origin+direction*20,origin+direction*(length+4)): return false
+	return true
+
+func choose_enemy_motion() -> String:
+	var motions := enemy_motions()
+	for i in motions.size():
+		var motion: String = motions[(enemy_attack_sequence+i)%motions.size()]
+		if motion_clear(motion): return motion
+	return ""
+
+func apply_enemy_motion(motion: String) -> void:
+	enemy_motion = motion
+	enemy_attack_sequence = enemy_motions().find(motion)+1
+	swing_direction = -1 if motion == "backhand" else 1
+	thrust_attack = motion == "thrust"
+	heavy_mode = motion == "overhead"
+	if heavy_mode: heavy = true
+
+func dash_lean() -> float:
+	if not active or not dash_mode: return 0
+	return sin(PI*clampf(elapsed/0.58,0,1))
+
+func dash_step(dt: float) -> void:
+	elapsed += dt
+	position = heavy_step_direction*dash_lean()*12
+	var windup := windup_duration()
+	if elapsed <= windup:
+		angle = lerpf(windup_start,swing_heading-1.35,smoothstep(0,1,elapsed/windup))
+	elif elapsed <= windup+0.24:
+		if not swing_sounded:
+			fighter.arena.sound.play("swing",60)
+			swing_sounded = true
+		var next := swing_heading-1.35+clampf((elapsed-windup)/0.24,0,1)*2.8
+		omega = 2.8/0.24
+		var divisions := maxi(1,ceili(absf(next-angle)*length/2))
+		var step := (next-angle)/divisions
+		for i in divisions:
+			if sweep(angle,angle+step,dash_previous_origin): return
+			angle += step
+		trail.append(Vector2.RIGHT.rotated(angle)*length)
+		if trail.size() > 12: trail.pop_front()
+	else:
+		omega = 0
+	dash_previous_origin = global_position
+	if elapsed >= 0.58: finish_attack()
 var charged_heavy := false
 var player_followup := false
 var overhead_pitch := 0.0
@@ -72,11 +206,15 @@ func wave_step(dt: float) -> void:
 	if elapsed > windup+0.65: finish_attack()
 
 func attack_velocity() -> Vector2:
+	if active and fighter.enemy_kind in ["wolf","reptile"] and fighter.hp > 0 and fighter.stun <= 0:
+		var t := elapsed-windup_duration()
+		if t <= 0 or t >= 0.22: return Vector2.ZERO
+		return heavy_step_direction*(70.0 if fighter.enemy_kind == "reptile" else 105.0)*PI/(2*0.22)*sin(PI*t/0.22)
 	if not active or (not heavy_mode and not dash_mode) or fighter.hp <= 0 or fighter.stun > 0: return Vector2.ZERO
 	var time_into_strike := elapsed-windup_duration()
 	if dash_mode:
-		if time_into_strike <= 0 or time_into_strike >= 0.22: return Vector2.ZERO
-		return heavy_step_direction * 72.0 * PI / (2*0.22) * sin(PI*time_into_strike/0.22)
+		if elapsed <= 0 or elapsed >= 0.42: return Vector2.ZERO
+		return heavy_step_direction * 110.0 * PI / (2*0.42) * sin(PI*elapsed/0.42)
 	if time_into_strike <= 0 or time_into_strike >= 0.16: return Vector2.ZERO
 	var distance := charged_step_distance if charged_heavy else heavy_step_distance
 	return heavy_step_direction * distance * PI / (2*0.16) * sin(PI*time_into_strike/0.16)
@@ -107,6 +245,7 @@ func overhead_step(dt: float) -> void:
 	if active and elapsed > windup+0.5: finish_attack()
 
 func engagement_distance() -> float:
+	if fighter.enemy_kind in ["wolf","reptile"]: return 120 if fighter.enemy_kind == "reptile" else 160
 	# Target radius is 19px; keep 10px of overlap rather than aiming at its edge.
 	return length + (30.0 if fighter.enemy_kind == "spear" else 9.0)
 
@@ -122,14 +261,21 @@ func target_in_reach_at(reach: float) -> bool:
 
 func begin_combo() -> void:
 	if not target_in_reach(): return
+	if not fighter.arena.can_start_enemy_attack(fighter): return
+	var motion := choose_enemy_motion()
+	if motion.is_empty():
+		fighter.avoid_blocked_attack(obstacle_normal)
+		return
 	fighter.attack(fighter.enemy_kind in ["brute","boss"])
 	if active:
+		apply_enemy_motion(motion)
+		if fighter.arena.exploring(): fighter.arena.encounter_attack_delay = 0.4
 		combo_index = 0
 		combo_remaining = 1 if fighter.enemy_kind == "brute" else 2
+		if fighter.enemy_kind in ["wolf","reptile"]: combo_remaining = 0
 		if fighter.enemy_kind == "boss":
 			combo_remaining = 2 if fighter.boss_enraged else 1
 			fighter.boss_attack_count += 1
-		swing_direction = 1
 
 func finish_attack() -> void:
 	if not fighter.enemy and player_followup:
@@ -143,24 +289,28 @@ func finish_attack() -> void:
 	var remaining := combo_remaining
 	var index := combo_index
 	cancel()
-	if remaining > 0 and fighter.hp > 0 and fighter.stun <= 0 and target_in_reach() and fighter.spend(24 if fighter.enemy_kind == "brute" else 14):
+	var motion := choose_enemy_motion() if fighter.enemy and remaining > 0 else ""
+	if remaining > 0 and motion.is_empty(): fighter.avoid_blocked_attack(obstacle_normal)
+	if remaining > 0 and not motion.is_empty() and fighter.hp > 0 and fighter.stun <= 0 and target_in_reach() and fighter.spend(24 if fighter.enemy_kind == "brute" else 14):
 		combo_remaining = remaining-1
 		combo_index = index+1
 		swing_direction = -1 if combo_index%2 == 1 else 1
 		begin(fighter.enemy_kind in ["brute","boss"] or combo_index == 2)
+		apply_enemy_motion(motion)
 	else:
 		combo_index = 0
 		cooldown = 1.15 if fighter.enemy_kind == "brute" else 0.7
 		if fighter.enemy_kind == "boss": cooldown = 0.85 if fighter.boss_enraged else 1.2
 
 func windup_duration() -> float:
+	if fighter.enemy_kind in ["wolf","reptile"]: return 0.65 if fighter.enemy_kind == "reptile" else 0.55
 	if fighter.enemy_kind == "boss":
 		if wave_mode: return 1.05 if fighter.boss_enraged else 1.25
 		if combo_index > 0: return 0.38 if fighter.boss_enraged else 0.5
 		return 0.95 if fighter.boss_enraged else 1.15
 	if wave_mode: return 0.95
-	if dash_mode: return 0.18
-	if heavy_mode: return 0.28
+	if dash_mode: return 0.12
+	if heavy_mode: return (0.6 if combo_index > 0 else 0.9) if fighter.enemy else 0.28
 	if not fighter.enemy: return 0.16 if thrust_attack else 0.12
 	if combo_index > 0:
 		return 0.48 if fighter.enemy_kind == "brute" else (0.32 if fighter.enemy_kind == "spear" else 0.28)
@@ -171,7 +321,10 @@ func windup_duration() -> float:
 func attack_phase() -> String:
 	if not active: return "RECOVERY" if cooldown > 0 else "READY"
 	if elapsed < windup_duration(): return "WINDUP"
-	if (thrust_attack or fighter.enemy_kind == "spear") and elapsed >= windup_duration()+0.27: return "RECOVERY"
+	if fighter.enemy_kind in ["wolf","reptile"] and elapsed >= windup_duration()+0.22: return "RECOVERY"
+	if is_player_slash() and elapsed >= windup_duration()+0.22: return "RECOVERY"
+	if dash_mode and elapsed >= windup_duration()+0.24: return "RECOVERY"
+	if thrust_attack and elapsed >= windup_duration()+0.27: return "RECOVERY"
 	if heavy_mode and elapsed >= windup_duration()+0.18: return "RECOVERY"
 	if wave_mode and elapsed >= windup_duration()+0.28: return "RECOVERY"
 	return "STRIKE"
@@ -194,6 +347,9 @@ func _ready() -> void:
 	angle = fighter.facing + 0.55
 
 func begin(strong: bool) -> void:
+	swing_heading = fighter.facing
+	angle = swing_heading+angle_difference(swing_heading,angle)
+	dash_previous_origin = global_position
 	dash_mode = false
 	wave_mode = false
 	wave_released = false
@@ -204,7 +360,8 @@ func begin(strong: bool) -> void:
 	charged_heavy = false
 	player_followup = false
 	if not fighter.enemy: swing_direction = 1
-	thrust_attack = not fighter.enemy and strong
+	enemy_motion = "thrust" if fighter.enemy_kind == "spear" else "slash"
+	thrust_attack = (not fighter.enemy and strong) or (fighter.enemy and fighter.enemy_kind == "spear")
 	if not thrust_attack:
 		extension = 0
 		position = Vector2.ZERO
@@ -219,6 +376,7 @@ func begin(strong: bool) -> void:
 	trail.clear()
 
 func cancel() -> void:
+	if dash_mode or (fighter.enemy and enemy_motion == "backhand"): position = Vector2.ZERO
 	player_followup = false
 	combo_remaining = 0
 	combo_index = 0
@@ -229,6 +387,7 @@ func cancel() -> void:
 	cooldown = 0.9 if fighter.enemy else 0.55
 
 func bounce(impact: float) -> void:
+	if dash_mode or (fighter.enemy and enemy_motion == "backhand"): position = Vector2.ZERO
 	player_followup = false
 	combo_remaining = 0
 	combo_index = 0
@@ -271,6 +430,29 @@ func _physics_process(dt: float) -> void:
 		queue_redraw()
 		return
 	if active:
+		if fighter.enemy_kind in ["wolf","reptile"]:
+			bite_step(dt)
+			blade.rotation = angle
+			blade.collision_layer = 16 if active and attack_phase() == "STRIKE" else 0
+			queue_redraw()
+			return
+		if is_player_slash():
+			blade.scale = Vector2.ONE
+			slash_step(dt)
+			blade.rotation = angle
+			blade.collision_layer = 16 if active and attack_phase() == "STRIKE" else 0
+			queue_redraw()
+			return
+		if fighter.enemy and not wave_mode and elapsed < windup_duration() and elapsed+dt >= windup_duration() and not motion_clear(enemy_motion):
+			cancel()
+			fighter.avoid_blocked_attack(obstacle_normal)
+			return
+		if dash_mode:
+			dash_step(dt)
+			blade.rotation = angle
+			blade.collision_layer = 16 if active and attack_phase() == "STRIKE" else 0
+			queue_redraw()
+			return
 		if wave_mode:
 			wave_step(dt)
 			blade.rotation = angle
@@ -285,7 +467,7 @@ func _physics_process(dt: float) -> void:
 			queue_redraw()
 			return
 		blade.scale = Vector2.ONE
-		if thrust_attack or fighter.enemy_kind == "spear":
+		if thrust_attack:
 			spear_step(dt)
 			blade.rotation = angle
 			blade.collision_layer = 16 if active and attack_phase() == "STRIKE" else 0
@@ -295,8 +477,12 @@ func _physics_process(dt: float) -> void:
 		var windup := windup_duration()
 		if elapsed <= windup:
 			var progress := smoothstep(0,1,elapsed/windup)
-			angle = lerpf(windup_start,fighter.facing-1.65*swing_direction,progress)
+			var preparation := 1.2 if fighter.enemy and enemy_motion == "backhand" else 1.65
+			if fighter.enemy: swing_heading = windup_start+angle_difference(windup_start,fighter.facing)
+			angle = lerpf(windup_start,swing_heading-preparation*swing_direction,progress)
+			if fighter.enemy and enemy_motion == "backhand": position = -fighter.forward()*10*progress+fighter.forward().orthogonal()*8*progress
 		if elapsed > windup:
+			if fighter.enemy and enemy_motion == "backhand": position = position.move_toward(Vector2.ZERO,dt*110)
 			if not swing_sounded:
 				fighter.arena.sound.play("heavy" if heavy else "swing", 65 if heavy else 40)
 				swing_sounded = true
@@ -309,7 +495,8 @@ func _physics_process(dt: float) -> void:
 				angle = next
 			trail.append(Vector2.RIGHT.rotated(angle) * length)
 			if trail.size() > 14: trail.pop_front()
-		if active and (elapsed > windup + 0.55 or (elapsed > windup and (angle-fighter.facing)*swing_direction > 2.0)):
+		var arc_end := 1.55 if fighter.enemy and enemy_motion == "backhand" else 2.0
+		if active and (elapsed > windup + 0.55 or (elapsed > windup and (angle-swing_heading)*swing_direction > arc_end)):
 			finish_attack()
 	else:
 		blade.scale = Vector2.ONE
@@ -423,7 +610,7 @@ func sweep(old: float, next: float, previous_origin := Vector2.INF, reach := -1.
 			blocked = true
 		elif collider is CharacterBody2D:
 			sound_kind = "flesh"
-			collider.receive(impact * 0.65, clampf(relative_speed * mass * damage_coefficient, 6, 42) * ((1.9 if charged_heavy else 1.5) if heavy_mode else (1.35 if heavy else 1)), tangent)
+			collider.receive(impact * 0.65, clampf(relative_speed * mass * damage_coefficient, 6, 42) * ((1.9 if charged_heavy else 1.5) if heavy_mode else (1.35 if heavy else 1)), tangent,result.position)
 			omega *= 0.72
 			fighter.push_impulse(-tangent, impact * 0.65)
 		elif collider is RigidBody2D:
@@ -432,6 +619,7 @@ func sweep(old: float, next: float, previous_origin := Vector2.INF, reach := -1.
 			omega *= 0.6
 		else:
 			blocked = true
+			if fighter.enemy: fighter.avoid_blocked_attack(result.normal)
 			fighter.posture += impact * 0.22
 			fighter.push_impulse(-tangent, impact * 2.2)
 		fighter.arena.sound.play(sound_kind, impact)
@@ -443,13 +631,14 @@ func sweep(old: float, next: float, previous_origin := Vector2.INF, reach := -1.
 	return false
 
 func _draw() -> void:
+	if fighter.enemy_kind in ["wolf","reptile"]: return
 	var direction := Vector2.RIGHT.rotated(angle)
 	if wave_mode and active:
 		var progress := clampf(elapsed/windup_duration(),0,1)
 		if fighter.arena.debug:
 			draw_arc(Vector2.ZERO,30,-PI/2,-PI/2+TAU*maxf(0.01,progress),36,Color("9ad9ff"),3,true)
 		draw_line(direction*22,direction*length,Color(0.5,0.8,1,0.25+progress*0.5),10,true)
-	if not fighter.enemy and (fighter.heavy_charge > 0 or (heavy_mode and active)):
+	if fighter.heavy_charge > 0 or (heavy_mode and active):
 		draw_overhead(direction)
 		return
 	if fighter.heavy_charge > 0:
@@ -467,7 +656,7 @@ func _draw() -> void:
 		if fighter.arena.debug:
 			draw_arc(-position,30,-PI/2,-PI/2+TAU*maxf(0.01,progress),40,warning,3,true)
 		draw_circle(direction*length,4+progress*3,warning)
-		if fighter.enemy_kind == "spear":
+		if thrust_attack:
 			draw_line(direction*length,direction*(length+55),Color(1,0.72,0.32,0.22+progress*0.2),2,true)
 	for i in range(1, trail.size()):
 		draw_line(trail[i-1], trail[i], Color(0.8,0.85,0.7,float(i)/trail.size()*0.45), 3)
@@ -489,8 +678,9 @@ func _draw() -> void:
 	if fighter.arena.debug:
 		draw_line(direction * 20, direction * length, Color(1,0.2,0.3,0.8), 9)
 
-func draw_polearm() -> void:
-	draw_set_transform(Vector2.ZERO,angle)
+func draw_polearm(pitch := 0.0) -> void:
+	var height := maxf(0,sin(pitch))
+	draw_set_transform(Vector2.UP.rotated(fighter.arena.camera.rotation)*height*10,angle,Vector2(maxf(0.28,cos(pitch)),1+height*0.25))
 	var shadow := Vector2(4,7).rotated(-angle)
 	var socket := length-25
 	draw_line(Vector2(16,0)+shadow,Vector2(length-5,0)+shadow,Color(0.01,0.02,0.03,0.32),9,true)
@@ -531,6 +721,9 @@ func draw_polearm() -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func draw_overhead(direction: Vector2) -> void:
+	if fighter.enemy and fighter.enemy_kind in ["brute","spear"]:
+		draw_polearm(overhead_pitch)
+		return
 	var height := maxf(0,sin(overhead_pitch))
 	var screen_up := Vector2.UP.rotated(fighter.arena.camera.rotation)
 	var hand := direction*16 + screen_up*height*9

@@ -5,10 +5,13 @@ const View = preload("res://scripts/view.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Sound = preload("res://scripts/sound.gd")
 const PropVisual = preload("res://scripts/prop_visual.gd")
+const Crate = preload("res://scripts/crate.gd")
 const Controls = preload("res://scripts/controls.gd")
 const MapGenerator = preload("res://scripts/map_generator.gd")
 const DungeonGenerator = preload("res://scripts/dungeon_generator.gd")
 const Vision = preload("res://scripts/vision.gd")
+const DamageEffects = preload("res://scripts/damage_effects.gd")
+var damage_effects: Node2D
 var vision: CanvasLayer
 
 func can_observe(target: Node2D) -> bool:
@@ -17,11 +20,18 @@ func can_observe(target: Node2D) -> bool:
 @export var map_seed := -1
 @export var boss_stage := false
 var arrival_hp := 100.0
+var arrival_flasks := 3
 var dungeon: Dictionary = {}
 var current_room := -1
 var seals := 0
 var switching_stage := false
 var guardians: Dictionary = {}
+var escorts: Array[CharacterBody2D] = []
+var room_guards: Dictionary = {}
+var encounter_attack_delay := 0.0
+
+func can_start_enemy_attack(actor: CharacterBody2D) -> bool:
+	return not exploring() or actor.global_position.distance_to(player.global_position) > 600 or encounter_attack_delay <= 0
 var idle_target: CharacterBody2D
 
 func exploring() -> bool:
@@ -35,6 +45,7 @@ func change_stage(to_boss: bool, new_seed := -1, preserve_hp := false) -> void:
 	replacement.random_map = random_map if new_seed < 0 else true
 	replacement.boss_stage = to_boss
 	replacement.arrival_hp = player.hp if preserve_hp else 100.0
+	replacement.arrival_flasks = player.flasks if preserve_hp else 3
 	get_tree().root.add_child(replacement)
 	get_tree().current_scene = replacement
 	queue_free()
@@ -54,11 +65,14 @@ func interact() -> void:
 	if room.kind == "gate":
 		if seals >= 3: change_stage(true,-1,true)
 		else: event_text = "GATE SEALED / DEFEAT 3 GUARDIANS (%d/3)" % seals
-	elif room.kind == "shrine" and not room.used:
-		room.used = true
-		player.hp = minf(100,player.hp+50)
+	elif room.kind in ["start","shrine"]:
+		player.flasks = player.max_flasks
+		if room.kind == "start": player.hp = player.max_hp
+		elif not room.used:
+			room.used = true
+			player.hp = minf(player.max_hp,player.hp+50)
 		sound.play("just_guard",55)
-		event_text = "SHRINE / HP RESTORED"
+		event_text = "REST / FLASKS REFILLED"
 
 func populate_guardians() -> void:
 	for i in dungeon.rooms.size():
@@ -67,13 +81,26 @@ func populate_guardians() -> void:
 		var guardian := Fighter.new()
 		guardian.arena = self
 		guardian.enemy = true
-		guardian.enemy_kind = ["warden","brute","spear"][room.enemy]
+		guardian.enemy_kind = ["warden","brute","spear","wolf"][room.enemy]
 		guardian.position = room.center+Vector2(0,-60)
 		guardian.facing = PI/2
 		guardian.home_position = guardian.position
 		guardian.awareness_enabled = true
 		add_child(guardian)
 		guardians[i] = guardian
+		room_guards[i] = [guardian]
+		for entry: Dictionary in room.get("escorts",[]):
+			var escort := Fighter.new()
+			escort.arena = self
+			escort.enemy = true
+			escort.enemy_kind = entry.kind
+			escort.position = entry.position
+			escort.facing = PI/2
+			escort.home_position = escort.position
+			escort.awareness_enabled = true
+			add_child(escort)
+			escorts.append(escort)
+			room_guards[i].append(escort)
 		room.hp = guardian.hp
 
 func update_exploration() -> void:
@@ -81,8 +108,11 @@ func update_exploration() -> void:
 		var guardian: CharacterBody2D = guardians[index]
 		var room: Dictionary = dungeon.rooms[index]
 		room.hp = guardian.hp
-		if guardian.hp <= 0 and not room.cleared:
-			guardian.make_corpse()
+		var all_defeated := true
+		for member in room_guards[index]:
+			if member.hp > 0: all_defeated = false
+		if all_defeated and not room.cleared:
+			for member in room_guards[index]: member.make_corpse()
 			room.cleared = true
 			seals += 1
 			event_text = "GUARDIAN DEFEATED / SEALS %d/3" % seals
@@ -102,8 +132,7 @@ func update_exploration() -> void:
 	camera.locked = false
 	var nearest: CharacterBody2D = idle_target
 	var best := 700.0
-	for index in guardians:
-		var guardian: CharacterBody2D = guardians[index]
+	for guardian: CharacterBody2D in guardians.values()+escorts:
 		if guardian.hp <= 0: continue
 		if not can_observe(guardian): continue
 		var distance := player.position.distance_to(guardian.position)
@@ -140,19 +169,19 @@ func next_enemy() -> void:
 	if exploring() or boss_stage:
 		interact()
 		return
-	select_enemy((enemy_index+1)%4)
+	select_enemy((enemy_index+1)%6)
 
 func select_enemy(index: int) -> void:
 	if exploring(): return
 	if player.hp <= 0: return
-	enemy_index = clampi(index,0,3)
+	enemy_index = clampi(index,0,5)
 	if is_instance_valid(opponent):
 		remove_child(opponent)
 		opponent.queue_free()
 	opponent = Fighter.new()
 	opponent.arena = self
 	opponent.enemy = true
-	opponent.enemy_kind = ["warden","brute","spear","boss"][enemy_index]
+	opponent.enemy_kind = ["warden","brute","spear","boss","wolf","reptile"][enemy_index]
 	opponent.position = Vector2(0,-85)
 	opponent.facing = PI/2
 	add_child(opponent)
@@ -179,12 +208,16 @@ func _ready() -> void:
 	add_child(controls)
 	sound = Sound.new()
 	add_child(sound)
+	damage_effects = DamageEffects.new()
+	damage_effects.arena = self
+	add_child(damage_effects)
 	var boundaries: Array = dungeon.walls if exploring() else [Rect2(-650,-510,1300,30),Rect2(-650,480,1300,30),Rect2(-650,-480,30,960),Rect2(620,-480,30,960)]
 	for rect in boundaries:
 		wall(rect)
 	for rect in layout.pillars: wall(rect)
 	for pos in layout.crates:
-		var box := RigidBody2D.new()
+		var box := Crate.new()
+		box.arena = self
 		box.position = pos
 		box.mass = 4
 		box.linear_damp = 4
@@ -206,6 +239,7 @@ func _ready() -> void:
 	player.facing = -PI/2
 	add_child(player)
 	player.hp = arrival_hp
+	player.flasks = clampi(arrival_flasks,0,player.max_flasks)
 	opponent = Fighter.new()
 	opponent.arena = self
 	opponent.enemy = true
@@ -228,6 +262,7 @@ func _ready() -> void:
 	vision = Vision.new()
 	vision.arena = self
 	add_child(vision)
+	if random_map: damage_effects.material = vision.actor_material
 	var hud := Hud.new()
 	hud.arena = self
 	add_child(hud)
@@ -256,6 +291,7 @@ func contact(point: Vector2, normal: Vector2, impact: float) -> void:
 	Engine.time_scale = 0.18
 
 func _process(dt: float) -> void:
+	encounter_attack_delay = maxf(0,encounter_attack_delay-dt)
 	if exploring() and player.hp > 0:
 		update_exploration()
 	elif boss_stage and opponent.hp <= 0 and player.hp > 0:
@@ -312,17 +348,23 @@ func draw_dungeon() -> void:
 		var origin := Vector2(tile)*DungeonGenerator.TILE
 		draw_rect(Rect2(origin,Vector2.ONE*60),Color("1b2932"))
 		draw_rect(Rect2(origin+Vector2.ONE,Vector2.ONE*58),Color("202f39").darkened(0.06 if (tile.x+tile.y)%2 == 0 else 0))
+		if (tile.x+tile.y)%2 == 0: draw_rect(Rect2(origin+Vector2(27,27),Vector2(6,6)),Color("354650"))
 	for room: Dictionary in dungeon.rooms:
+		var floor_color: Color = {"hall":Color("302e32"),"tower":Color("26313c"),"ell":Color("293239")}.get(room.shape,Color("26343b"))
+		if room.kind in ["start","shrine"]: floor_color = Color("253a3c")
+		if room.kind == "gate": floor_color = Color("373337")
 		for tile: Vector2i in room.tiles:
 			var origin := Vector2(tile)*60
+			draw_rect(Rect2(origin+Vector2.ONE,Vector2.ONE*58),floor_color.darkened(0.05 if (tile.x+tile.y)%2 == 0 else 0))
 			for direction in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
-				if dungeon.floors.has(tile+direction): continue
 				var normal := Vector2(direction)
 				var edge := origin+Vector2(30,30)+normal*25
+				if dungeon.floors.has(tile+direction):
+					if not room.tiles.has(tile+direction): draw_line(edge-normal.orthogonal()*22,edge+normal.orthogonal()*22,Color("81918c"),3,true)
+					continue
 				draw_line(edge-normal.orthogonal()*27,edge+normal.orthogonal()*27,Color("405863"),1.5,true)
-		if room.kind in ["gate","shrine"]:
+		if room.kind in ["gate","shrine","start"]:
 			var color := Color("e1b777") if room.kind == "gate" else Color("81cfbc")
-			if room.used: color = color.darkened(0.65)
 			var center: Vector2 = room.center
 			if room.kind == "gate":
 				for i in 3:

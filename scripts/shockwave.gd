@@ -26,7 +26,7 @@ func _physics_process(dt: float) -> void:
 		if target.has_meta("fighter"):
 			perfect = target.get_meta("fighter").absorb_guard(42,direction,1,0,true,source)
 		elif target is CharacterBody2D:
-			target.receive(42,35,direction)
+			target.receive(42,35,direction,closest.position)
 		elif target is RigidBody2D:
 			target.apply_impulse(direction*350,closest.position-target.global_position)
 		if not perfect: source.arena.sound.play("metal" if target.has_meta("fighter") else "stone",55)

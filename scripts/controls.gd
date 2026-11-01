@@ -2,7 +2,7 @@ extends Node
 ## Standard Godot gamepad layout (Xbox / PlayStation equivalent positions).
 var using_pad := false
 var help_visible := true
-const BUTTONS := {"pad_attack": JOY_BUTTON_RIGHT_SHOULDER, "pad_guard": JOY_BUTTON_LEFT_SHOULDER, "pad_roll": JOY_BUTTON_A, "pad_kick": JOY_BUTTON_X, "pad_lock": JOY_BUTTON_RIGHT_STICK, "pad_restart": JOY_BUTTON_START, "pad_next": JOY_BUTTON_DPAD_RIGHT}
+const BUTTONS := {"pad_attack": JOY_BUTTON_RIGHT_SHOULDER, "pad_guard": JOY_BUTTON_LEFT_SHOULDER, "pad_roll": JOY_BUTTON_A, "pad_kick": JOY_BUTTON_B, "pad_heal": JOY_BUTTON_X, "pad_lock": JOY_BUTTON_RIGHT_STICK, "pad_restart": JOY_BUTTON_START, "pad_next": JOY_BUTTON_DPAD_RIGHT}
 const AXES := {"pad_left": [JOY_AXIS_LEFT_X,-1.0],"pad_right": [JOY_AXIS_LEFT_X,1.0],"pad_up": [JOY_AXIS_LEFT_Y,-1.0],"pad_down": [JOY_AXIS_LEFT_Y,1.0],"pad_look_left": [JOY_AXIS_RIGHT_X,-1.0],"pad_look_right": [JOY_AXIS_RIGHT_X,1.0]}
 
 func _ready() -> void:
