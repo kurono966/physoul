@@ -4,6 +4,7 @@ var arena: Node2D
 var display: Control
 
 func _ready() -> void:
+	layer = 2
 	display = Control.new()
 	display.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	display.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -37,7 +38,7 @@ func paint() -> void:
 	compact_bar(Vector2(30,54),"HP",arena.player.hp,Color("c87168"))
 	compact_bar(Vector2(30,76),"STAMINA",arena.player.stamina,Color("72c8ab"))
 	compact_bar(Vector2(30,98),"POSTURE",arena.player.posture,Color("e2ba72"))
-	if arena.opponent.hp > 0 or not arena.exploring():
+	if (arena.opponent.hp > 0 and arena.can_observe(arena.opponent)) or (not arena.exploring() and arena.opponent.hp <= 0):
 		display.draw_style_box(panel_style(panel),Rect2(size.x-266,16,250,110))
 		var right := size.x-252
 		text_at(Vector2(right,39),arena.opponent.title,14 if arena.opponent.enemy_kind == "boss" else 16,Color("e5d4ae"))
@@ -62,7 +63,7 @@ func paint() -> void:
 		if not arena.debug: draw_minimap()
 		if arena.current_room >= 0:
 			var room: Dictionary = arena.dungeon.rooms[arena.current_room]
-			if arena.player.position.distance_to(room.center) <= 100:
+			if arena.player.position.distance_to(room.center) <= 100 and arena.vision.observes(room.center):
 				var action := "Y" if arena.controls.using_pad else "E"
 				if room.kind == "gate":
 					text_at(Vector2(size.x/2-150,size.y-210),action+" / ENTER BOSS ARENA" if arena.seals >= 3 else "BOSS GATE / NEED 3 SEALS",18,Color("e5d4ae"))
@@ -92,21 +93,19 @@ func panel_style(color: Color) -> StyleBoxFlat:
 func draw_minimap() -> void:
 	var origin := Vector2(45,242)
 	display.draw_style_box(panel_style(Color(0.025,0.04,0.055,0.78)),Rect2(16,212,170,165))
-	for edge: Array in arena.dungeon.links:
-		var visible := false
-		for room: Dictionary in arena.dungeon.rooms:
-			if room.visited and room.cell in edge: visible = true
-		if visible: display.draw_line(origin+Vector2(edge[0])*50,origin+Vector2(edge[1])*50,Color("576f79"),3,true)
-	for i in arena.dungeon.rooms.size():
-		var room: Dictionary = arena.dungeon.rooms[i]
-		if not room.visited: continue
-		var point := origin+Vector2(room.cell)*50
+	var scale := Vector2(50.0/15,50.0/13)
+	for tile: Vector2i in arena.dungeon.floors:
+		if not arena.vision.remembers((Vector2(tile)+Vector2.ONE*0.5)*60): continue
+		display.draw_rect(Rect2(origin+Vector2(tile)*scale,scale),Color("576f79"))
+	for room: Dictionary in arena.dungeon.rooms:
 		var color := Color("648477") if room.cleared else Color("b67560")
 		if room.kind == "gate": color = Color("d9ba7d")
 		for tile: Vector2i in room.tiles:
-			var local_tile: Vector2i = tile-room.cell*arena.DungeonGenerator.STEP
-			display.draw_rect(Rect2(point+Vector2(local_tile)*1.6,Vector2.ONE*1.6),color)
-		if i == arena.current_room: display.draw_rect(Rect2(point-Vector2(12,10),Vector2(24,20)),Color("bce8e0"),false,2)
+			if not arena.vision.remembers((Vector2(tile)+Vector2.ONE*0.5)*60): continue
+			display.draw_rect(Rect2(origin+Vector2(tile)*scale,scale),color)
+	var position: Vector2 = origin+arena.player.position/60*scale
+	display.draw_circle(position,3,Color("bce8e0"))
+	display.draw_line(position,position+arena.player.forward()*8,Color("bce8e0"),1.5,true)
 
 func draw_target_marker() -> void:
 	# Screen-space overlay stays above the boss and does not rotate with the floor.

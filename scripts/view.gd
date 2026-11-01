@@ -90,7 +90,7 @@ func _physics_process(dt: float) -> void:
 					# The held animation already performed the windup.
 					player.weapon.elapsed = player.weapon.windup_duration()
 				player.charge = 0
-	if arena.opponent.hp <= 0: locked = false
+	if arena.opponent.hp <= 0 or not arena.can_observe(arena.opponent): locked = false
 	if locked:
 		heading = (arena.opponent.global_position - player.global_position).angle()
 	if player.hp > 0 and player.stun <= 0 and player.critical_time <= 0:

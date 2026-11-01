@@ -8,6 +8,11 @@ const PropVisual = preload("res://scripts/prop_visual.gd")
 const Controls = preload("res://scripts/controls.gd")
 const MapGenerator = preload("res://scripts/map_generator.gd")
 const DungeonGenerator = preload("res://scripts/dungeon_generator.gd")
+const Vision = preload("res://scripts/vision.gd")
+var vision: CanvasLayer
+
+func can_observe(target: Node2D) -> bool:
+	return vision == null or vision.observes_body(target,32 if target is CharacterBody2D and target.enemy_kind == "boss" else 16)
 @export var random_map := true
 @export var map_seed := -1
 @export var boss_stage := false
@@ -45,6 +50,7 @@ func interact() -> void:
 	if not exploring() or current_room < 0: return
 	var room: Dictionary = dungeon.rooms[current_room]
 	if player.position.distance_to(room.center) > 100: return
+	if vision != null and not vision.observes(room.center): return
 	if room.kind == "gate":
 		if seals >= 3: change_stage(true,-1,true)
 		else: event_text = "GATE SEALED / DEFEAT 3 GUARDIANS (%d/3)" % seals
@@ -88,17 +94,18 @@ func update_exploration() -> void:
 		current_room = i
 		room.visited = true
 		if room.kind == "battle" and not room.cleared:
-			event_text = "GUARDIAN / " + guardians[i].title
+			event_text = "CHAMBER / STAY ALERT"
 		else:
-			event_text = {"start":"EXPLORE / FIND 3 SEALS AND THE BOSS GATE","gate":"BOSS GATE / E OR Y TO ENTER","shrine":"SHRINE / E OR Y TO RESTORE HP"}.get(room.kind,"ROOM CLEARED")
+			event_text = {"start":"EXPLORE / FIND 3 SEALS AND THE BOSS GATE","gate":"CHAMBER / LOOK FOR THE BOSS GATE","shrine":"CHAMBER / LOOK FOR THE SHRINE"}.get(room.kind,"ROOM CLEARED")
 		break
-	if camera.locked and opponent.hp > 0 and player.position.distance_to(opponent.position) < 900: return
+	if camera.locked and opponent.hp > 0 and can_observe(opponent): return
 	camera.locked = false
 	var nearest: CharacterBody2D = idle_target
 	var best := 700.0
 	for index in guardians:
 		var guardian: CharacterBody2D = guardians[index]
 		if guardian.hp <= 0: continue
+		if not can_observe(guardian): continue
 		var distance := player.position.distance_to(guardian.position)
 		if distance >= best: continue
 		var sight := PhysicsRayQueryParameters2D.create(player.position,guardian.position,1)
@@ -218,6 +225,9 @@ func _ready() -> void:
 	camera.arena = self
 	camera.position = player.position + Vector2(0,-145)
 	add_child(camera)
+	vision = Vision.new()
+	vision.arena = self
+	add_child(vision)
 	var hud := Hud.new()
 	hud.arena = self
 	add_child(hud)
@@ -289,6 +299,7 @@ func _draw() -> void:
 			draw_line(radial*(ring+15),radial*(ring+25),Color("52616a"),2,true)
 		draw_rect(Rect2(-600,-460,1200,920),Color("475762"),false,2)
 	for spark in sparks:
+		if vision != null and random_map and not vision.observes(spark.point): continue
 		for i in 7:
 			var direction := Vector2.RIGHT.rotated(i * 2.399 + time)
 			draw_line(spark.point + direction * 4, spark.point + direction * (8 + (0.22-spark.life)*110), Color(1,0.8,0.4,spark.life/0.22), 2)

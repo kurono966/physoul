@@ -49,7 +49,7 @@ func run() -> void:
 	var initial_ids: Dictionary = {}
 	for index in arena.guardians:
 		initial_ids[index] = arena.guardians[index].get_instance_id()
-		check(arena.guardians[index].visible and arena.guardians[index].hp > 0,"guardian %d exists visibly before room entry" % index)
+		check(arena.guardians[index].is_inside_tree() and arena.guardians[index].hp > 0,"guardian %d exists before room entry regardless of visibility" % index)
 		arena.guardians[index].think(0.01)
 		check(not arena.guardians[index].alerted,"distant guardian %d waits without aggro" % index)
 	var destination: Vector2 = Vector2(arena.dungeon.links[0][1]*Generator.STEP)*Generator.TILE
