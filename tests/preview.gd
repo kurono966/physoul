@@ -11,6 +11,15 @@ func run() -> void:
 		arena.select_enemy(3)
 		arena.opponent.position = Vector2(0,-20)
 		await process_frame
+	if "--hammer" in OS.get_cmdline_user_args():
+		arena.select_enemy(1)
+		await process_frame
+	if "--spear" in OS.get_cmdline_user_args():
+		arena.select_enemy(2)
+		await process_frame
+	if "--lock" in OS.get_cmdline_user_args():
+		arena.camera.locked = true
+		await process_frame
 	if "--debug" in OS.get_cmdline_user_args(): arena.debug = true
 	if "--wave" in OS.get_cmdline_user_args():
 		arena.controls.help_visible = false

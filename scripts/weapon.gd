@@ -465,23 +465,64 @@ func _draw() -> void:
 			draw_line(direction*length,direction*(length+55),Color(1,0.72,0.32,0.22+progress*0.2),2,true)
 	for i in range(1, trail.size()):
 		draw_line(trail[i-1], trail[i], Color(0.8,0.85,0.7,float(i)/trail.size()*0.45), 3)
+	if fighter.enemy and fighter.enemy_kind in ["brute","spear"]:
+		draw_polearm()
+		if fighter.arena.debug: draw_line(direction*20,direction*length,Color.RED,1.5,true)
+		return
 	draw_line(direction*16+Vector2(4,7),direction*length+Vector2(4,7),Color(0.015,0.02,0.03,0.3),7,true)
 	draw_line(direction*16,direction*length,Color("18252e"),8,true)
 	draw_line(direction * 16, direction * 30, Color("bfa171"), 6)
 	draw_line(direction * 30, direction * length, Color("e4e9e5") if not heavy else Color("ffcc83"), 5)
 	draw_line(direction*32-direction.orthogonal()*1.3,direction*(length-2)-direction.orthogonal()*1.3,Color("ffffff"),1.3,true)
 	draw_line(direction*32+direction.orthogonal()*2,direction*length+direction.orthogonal()*2,Color("718b99"),1.3,true)
-	if fighter.enemy and fighter.enemy_kind == "brute":
-		draw_line(direction*(length-8)+direction.orthogonal()*17,direction*(length-8)-direction.orthogonal()*17,Color("c4b08b"),16,true)
 	if fighter.enemy_kind == "boss":
 		var edge := direction.orthogonal()
 		draw_colored_polygon(PackedVector2Array([direction*(length+5),direction*(length-35)+edge*15,direction*(length-42)-edge*11]),Color("e4c5a0") if not fighter.boss_enraged else Color("f69b74"))
 		draw_line(direction*35,direction*(length-27),Color("a58f77"),9,true)
-	if fighter.enemy and fighter.enemy_kind == "spear":
-		draw_colored_polygon(PackedVector2Array([direction*(length+5),direction*(length-15)+direction.orthogonal()*7,direction*(length-15)-direction.orthogonal()*7]),Color("d9d2ef"))
 	draw_line(direction * 28 + direction.orthogonal()*9, direction*28-direction.orthogonal()*9, Color("8a9da8"), 4)
 	if fighter.arena.debug:
 		draw_line(direction * 20, direction * length, Color(1,0.2,0.3,0.8), 9)
+
+func draw_polearm() -> void:
+	draw_set_transform(Vector2.ZERO,angle)
+	var shadow := Vector2(4,7).rotated(-angle)
+	var socket := length-25
+	draw_line(Vector2(16,0)+shadow,Vector2(length-5,0)+shadow,Color(0.01,0.02,0.03,0.32),9,true)
+	draw_line(Vector2(16,0),Vector2(socket+8,0),Color("15212a"),9,true)
+	draw_line(Vector2(16,0),Vector2(socket+8,0),Color("76664f"),5,true)
+	draw_line(Vector2(18,-1.4),Vector2(socket+6,-1.4),Color("b0a084"),1.4,true)
+	for x in range(19,37,5):
+		draw_line(Vector2(x,-3),Vector2(x+2,3),Color("3b4143"),2,true)
+	# A metal collar visibly sockets the head onto the continuous wooden shaft.
+	draw_line(Vector2(socket-5,0),Vector2(socket+9,0),Color("25343e"),9,true)
+	draw_line(Vector2(socket-4,-1),Vector2(socket+8,-1),Color("9ba9a9"),5,true)
+	if fighter.enemy_kind == "brute":
+		var head := PackedVector2Array([Vector2(length-22,-17),Vector2(length-5,-17),Vector2(length,-12),Vector2(length,12),Vector2(length-5,17),Vector2(length-22,17),Vector2(length-27,12),Vector2(length-27,-12)])
+		var cast := PackedVector2Array()
+		for point in head: cast.append(point+shadow)
+		draw_colored_polygon(cast,Color(0.01,0.02,0.03,0.3))
+		draw_colored_polygon(head,Color("6d7b81"))
+		draw_colored_polygon(PackedVector2Array([head[0],head[1],Vector2(length-7,-11),Vector2(length-20,-11)]),Color("abb8b6"))
+		draw_colored_polygon(PackedVector2Array([head[3],head[4],head[5],Vector2(length-20,10),Vector2(length-5,10)]),Color("3f515d"))
+		draw_rect(Rect2(length-21,-11,15,22),Color("81908f"))
+		draw_line(Vector2(length-12,-15),Vector2(length-12,15),Color("b6a17d"),4,true)
+		draw_circle(Vector2(length-12,0),2.5,Color("26343d"))
+		var outline := head.duplicate()
+		outline.append(head[0])
+		draw_polyline(outline,Color("1c2a33"),2,true)
+	else:
+		var leaf := PackedVector2Array([Vector2(length,0),Vector2(length-19,-7),Vector2(length-27,-3),Vector2(length-27,3),Vector2(length-19,7)])
+		var cast := PackedVector2Array()
+		for point in leaf: cast.append(point+shadow)
+		draw_colored_polygon(cast,Color(0.01,0.02,0.03,0.3))
+		draw_colored_polygon(leaf,Color("8399a3"))
+		draw_colored_polygon(PackedVector2Array([leaf[0],leaf[1],leaf[2],Vector2(length-25,0)]),Color("d2dfdc"))
+		draw_colored_polygon(PackedVector2Array([leaf[0],Vector2(length-25,0),leaf[3],leaf[4]]),Color("687b8e"))
+		var outline := leaf.duplicate()
+		outline.append(leaf[0])
+		draw_polyline(outline,Color("1c2a33"),1.5,true)
+		draw_line(Vector2(length-25,0),Vector2(length-2,0),Color("b7caca"),1,true)
+	draw_set_transform(Vector2.ZERO)
 
 func draw_overhead(direction: Vector2) -> void:
 	var height := maxf(0,sin(overhead_pitch))

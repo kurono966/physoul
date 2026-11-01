@@ -147,8 +147,6 @@ func _draw() -> void:
 		for i in 7:
 			var direction := Vector2.RIGHT.rotated(i * 2.399 + time)
 			draw_line(spark.point + direction * 4, spark.point + direction * (8 + (0.22-spark.life)*110), Color(1,0.8,0.4,spark.life/0.22), 2)
-	if camera != null and camera.locked and opponent.hp > 0:
-		draw_arc(opponent.position, 32, time, time + 5, 32, Color("f0db9f"), 2)
 	if debug:
 		draw_circle(last_point, 5, Color.RED)
 		draw_line(last_point,last_point+last_normal*60,Color.YELLOW,2)

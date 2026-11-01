@@ -32,6 +32,7 @@ const server = http.createServer((req,res)=>{
   await page.locator('#canvas').click({position:{x:640,y:550}});
   await page.waitForTimeout(1200);
   await page.keyboard.press('4');
+  await page.keyboard.press('Tab');
   await page.waitForTimeout(500);
   await page.keyboard.down('w');
   await page.waitForTimeout(250);

@@ -29,6 +29,8 @@ func compact_bar(point: Vector2, label: String, value: float, color: Color) -> v
 
 func paint() -> void:
 	var size := display.get_viewport_rect().size
+	if arena.camera.locked and arena.opponent.hp > 0:
+		draw_target_marker()
 	var panel := Color(0.025,0.04,0.055,0.76)
 	display.draw_style_box(panel_style(panel),Rect2(16,16,250,110))
 	display.draw_style_box(panel_style(panel),Rect2(size.x-266,16,250,110))
@@ -72,3 +74,21 @@ func panel_style(color: Color) -> StyleBoxFlat:
 	style.bg_color = color
 	style.set_corner_radius_all(6)
 	return style
+
+func draw_target_marker() -> void:
+	# Screen-space overlay stays above the boss and does not rotate with the floor.
+	var center: Vector2 = display.get_viewport().get_canvas_transform()*arena.opponent.global_position
+	var extent := 66.0 if arena.opponent.enemy_kind == "boss" else 32.0
+	var ink := Color("f6dfa4")
+	for x in [-1,1]:
+		for y in [-1,1]:
+			var corner := center+Vector2(x,y)*extent
+			var points := PackedVector2Array([corner-Vector2(x*14,0),corner,corner-Vector2(0,y*14)])
+			display.draw_polyline(points,Color(0.025,0.04,0.055,0.9),7,true)
+			display.draw_polyline(points,ink,2.5,true)
+	var above := center+Vector2(0,-extent-12)
+	var diamond := PackedVector2Array([above+Vector2(0,-6),above+Vector2(6,0),above+Vector2(0,6),above+Vector2(-6,0),above+Vector2(0,-6)])
+	display.draw_polyline(diamond,Color("14202a"),6,true)
+	display.draw_polyline(diamond,ink,2,true)
+	display.draw_circle(center,4,Color("14202a"))
+	display.draw_circle(center,1.7,ink)
