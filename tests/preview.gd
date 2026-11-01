@@ -6,8 +6,12 @@ func _initialize() -> void:
 func run() -> void:
 	var arena = load("res://arena.tscn").instantiate()
 	arena.random_map = false
+	if "--explore" in OS.get_cmdline_user_args():
+		arena.random_map = true
+		arena.map_seed = 12345
 	if "--map" in OS.get_cmdline_user_args():
 		arena.random_map = true
+		arena.boss_stage = true
 		arena.map_seed = 73491
 	root.add_child(arena)
 	for i in 20: await process_frame

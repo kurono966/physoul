@@ -30,13 +30,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_TAB: locked = not locked
 			KEY_F3: arena.debug = not arena.debug
 			KEY_H: arena.controls.help_visible = not arena.controls.help_visible
-			KEY_R: get_tree().reload_current_scene()
+			KEY_R: arena.call_deferred("restart_stage")
+			KEY_E: arena.call_deferred("interact")
 			KEY_N: arena.next_enemy()
 			KEY_M: arena.call_deferred("regenerate_map")
-			KEY_1: arena.select_enemy(0)
-			KEY_2: arena.select_enemy(1)
-			KEY_3: arena.select_enemy(2)
-			KEY_4: arena.select_enemy(3)
+			KEY_1, KEY_2, KEY_3:
+				if not arena.exploring() or arena.debug: arena.select_enemy(event.keycode-KEY_1)
+			KEY_4:
+				if arena.exploring() and arena.debug: arena.call_deferred("change_stage",true)
+				elif not arena.exploring(): arena.select_enemy(3)
 	var pad_attack := event is InputEventJoypadButton and event.is_action("pad_attack")
 	if pad_attack or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED):
 		if event.pressed:
@@ -53,8 +55,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton and event.pressed:
 		if event.button_index == JOY_BUTTON_BACK: arena.controls.help_visible = not arena.controls.help_visible
 		if event.button_index == JOY_BUTTON_DPAD_UP: arena.call_deferred("regenerate_map")
+		if event.button_index == JOY_BUTTON_Y: arena.call_deferred("interact")
 		if event.is_action("pad_lock"): locked = not locked
-		if event.is_action("pad_restart"): get_tree().reload_current_scene()
+		if event.is_action("pad_restart"): arena.call_deferred("restart_stage")
 		if event.is_action("pad_next"): arena.next_enemy()
 
 func _physics_process(dt: float) -> void:

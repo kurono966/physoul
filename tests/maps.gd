@@ -33,14 +33,15 @@ func run() -> void:
 	check(min_pillars >= 4 and min_crates >= 3,"every sampled map has pillars and movable crates (%d / %d minimum)" % [min_pillars,min_crates])
 	var arena = load("res://arena.tscn").instantiate()
 	arena.map_seed = 12345
+	arena.boss_stage = true
 	root.add_child(arena)
 	current_scene = arena
 	await physics_frame
 	check(arena.layout == Generator.generate(12345),"scene instantiates selected seed")
 	var old_layout: Dictionary = arena.layout.duplicate(true)
 	check(get_tree_seed() == 12345,"retry seed is stored")
-	reload_current_scene()
-	await scene_changed
+	arena.restart_stage()
+	await process_frame
 	check(current_scene.map_seed == 12345 and current_scene.layout == old_layout,"restart preserves identical map")
 	current_scene.regenerate_map()
 	await process_frame
