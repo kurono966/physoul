@@ -1,0 +1,11 @@
+.godot/
+build/
+node_modules/
+export_templates/
+feature_profiles/
+script_templates/
+text_editor_themes/
+preview.png
+just_guard_preview.wav
+preview.png.import
+just_guard_preview.wav.import
