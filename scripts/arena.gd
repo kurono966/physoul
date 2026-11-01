@@ -16,6 +16,8 @@ var dungeon: Dictionary = {}
 var current_room := -1
 var seals := 0
 var switching_stage := false
+var guardians: Dictionary = {}
+var idle_target: CharacterBody2D
 
 func exploring() -> bool:
 	return random_map and not boss_stage
@@ -52,13 +54,30 @@ func interact() -> void:
 		sound.play("just_guard",55)
 		event_text = "SHRINE / HP RESTORED"
 
+func populate_guardians() -> void:
+	for i in dungeon.rooms.size():
+		var room: Dictionary = dungeon.rooms[i]
+		if room.kind != "battle": continue
+		var guardian := Fighter.new()
+		guardian.arena = self
+		guardian.enemy = true
+		guardian.enemy_kind = ["warden","brute","spear"][room.enemy]
+		guardian.position = room.center+Vector2(0,-60)
+		guardian.facing = PI/2
+		guardian.home_position = guardian.position
+		guardian.awareness_enabled = true
+		add_child(guardian)
+		guardians[i] = guardian
+		room.hp = guardian.hp
+
 func update_exploration() -> void:
-	if opponent.hp <= 0 and current_room >= 0:
-		opponent.make_corpse()
-		var active: Dictionary = dungeon.rooms[current_room]
-		if active.kind == "battle" and not active.cleared:
-			active.cleared = true
-			active.hp = 0.0
+	for index in guardians:
+		var guardian: CharacterBody2D = guardians[index]
+		var room: Dictionary = dungeon.rooms[index]
+		room.hp = guardian.hp
+		if guardian.hp <= 0 and not room.cleared:
+			guardian.make_corpse()
+			room.cleared = true
 			seals += 1
 			event_text = "GUARDIAN DEFEATED / SEALS %d/3" % seals
 	if player.critical_time > 0: return
@@ -66,24 +85,28 @@ func update_exploration() -> void:
 		var room: Dictionary = dungeon.rooms[i]
 		var tile := Vector2i(floori(player.position.x/60),floori(player.position.y/60))
 		if not room.tiles.has(tile) or i == current_room: continue
-		if current_room >= 0 and dungeon.rooms[current_room].kind == "battle" and not dungeon.rooms[current_room].cleared:
-			dungeon.rooms[current_room].hp = opponent.hp
 		current_room = i
 		room.visited = true
 		if room.kind == "battle" and not room.cleared:
-			select_enemy(room.enemy)
-			opponent.position = room.center+Vector2(0,-60)
-			if room.hp >= 0: opponent.hp = room.hp
-			event_text = "GUARDIAN / " + opponent.title
+			event_text = "GUARDIAN / " + guardians[i].title
 		else:
-			opponent.hp = 0
-			opponent.weapon.cancel()
-			opponent.position = Vector2(-100000,-100000)
-			opponent.hide()
-			opponent.set_physics_process(false)
 			event_text = {"start":"EXPLORE / FIND 3 SEALS AND THE BOSS GATE","gate":"BOSS GATE / E OR Y TO ENTER","shrine":"SHRINE / E OR Y TO RESTORE HP"}.get(room.kind,"ROOM CLEARED")
-		camera.locked = false
 		break
+	if camera.locked and opponent.hp > 0 and player.position.distance_to(opponent.position) < 900: return
+	camera.locked = false
+	var nearest: CharacterBody2D = idle_target
+	var best := 700.0
+	for index in guardians:
+		var guardian: CharacterBody2D = guardians[index]
+		if guardian.hp <= 0: continue
+		var distance := player.position.distance_to(guardian.position)
+		if distance >= best: continue
+		var sight := PhysicsRayQueryParameters2D.create(player.position,guardian.position,1)
+		if not get_world_2d().direct_space_state.intersect_ray(sight).is_empty(): continue
+		best = distance
+		nearest = guardian
+	opponent = nearest
+
 var layout: Dictionary = {}
 
 func regenerate_map() -> void:
@@ -113,6 +136,7 @@ func next_enemy() -> void:
 	select_enemy((enemy_index+1)%4)
 
 func select_enemy(index: int) -> void:
+	if exploring(): return
 	if player.hp <= 0: return
 	enemy_index = clampi(index,0,3)
 	if is_instance_valid(opponent):
@@ -187,6 +211,9 @@ func _ready() -> void:
 		opponent.position = Vector2(-100000,-100000)
 		opponent.hide()
 		opponent.set_physics_process(false)
+		idle_target = opponent
+		opponent.make_corpse()
+		populate_guardians()
 	camera = View.new()
 	camera.arena = self
 	camera.position = player.position + Vector2(0,-145)

@@ -50,11 +50,12 @@ func paint() -> void:
 		display.draw_rect(Rect2(0,size.y-80,size.x,80),Color(0.025,0.04,0.055,0.9))
 		if arena.controls.using_pad:
 			text_at(Vector2(30,size.y-50),"LS Move  RS Turn  RB/R1 Slash · Hold: Thrust  RT/R2 Overhead  LT/L2 Wave  LB/L1 Guard",15)
-			text_at(Vector2(30,size.y-23),"A Roll  X Kick  Y Interact / Gate  R3 Lock  D-pad Up New Map  Start Retry  Back Help",16)
+			text_at(Vector2(30,size.y-23),"L3 Sprint  A Roll  X Kick  Y Interact  R3 Lock  D-pad Up New Map  Start Retry  Back Help",16)
 		else:
 			text_at(Vector2(30,size.y-50),"WASD Move   Mouse Turn   LMB Click: Slash / Hold: Prepare + Auto Thrust   RMB Guard",16)
 			text_at(Vector2(30,size.y-23),"SHIFT Roll  SPACE Kick  E Interact / Gate  TAB Lock  M New Map  R Retry  ESC Cursor  H Help",16)
 	text_at(Vector2(30,151),arena.event_text,14,Color("e5d4ae"))
+	if arena.player.sprinting: text_at(Vector2(195,39),"SPRINT",11,Color("91dcc6"))
 	text_at(Vector2(30,172),"MAP %d  /  %s" % [arena.map_seed,"D-PAD UP: NEW" if arena.controls.using_pad else "M: NEW  ·  R: RETRY"],11,Color("91a7af"))
 	if arena.exploring():
 		text_at(Vector2(30,194),"SEALS %d/3  /  EXPLORE → BOSS GATE" % arena.seals,12,Color("e5d4ae"))

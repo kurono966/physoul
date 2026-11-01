@@ -24,7 +24,7 @@ func run() -> void:
 	arena = load("res://arena.tscn").instantiate()
 	arena.random_map = false
 	root.add_child(arena)
-	await frames(2)
+	await frames(20)
 	arena.opponent.set_physics_process(false)
 	axis(JOY_AXIS_LEFT_X,0.1)
 	await frames(2)

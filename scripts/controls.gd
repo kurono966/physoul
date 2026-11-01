@@ -6,6 +6,12 @@ const BUTTONS := {"pad_attack": JOY_BUTTON_RIGHT_SHOULDER, "pad_guard": JOY_BUTT
 const AXES := {"pad_left": [JOY_AXIS_LEFT_X,-1.0],"pad_right": [JOY_AXIS_LEFT_X,1.0],"pad_up": [JOY_AXIS_LEFT_Y,-1.0],"pad_down": [JOY_AXIS_LEFT_Y,1.0],"pad_look_left": [JOY_AXIS_RIGHT_X,-1.0],"pad_look_right": [JOY_AXIS_RIGHT_X,1.0]}
 
 func _ready() -> void:
+	if not InputMap.has_action("pad_sprint"):
+		InputMap.add_action("pad_sprint")
+		var press := InputEventJoypadButton.new()
+		press.device = -1
+		press.button_index = JOY_BUTTON_LEFT_STICK
+		InputMap.action_add_event("pad_sprint",press)
 	if not InputMap.has_action("pad_wave"):
 		InputMap.add_action("pad_wave",0.15)
 		var trigger := InputEventJoypadMotion.new()

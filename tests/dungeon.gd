@@ -45,7 +45,13 @@ func run() -> void:
 	await frames(3)
 	arena.player.set_physics_process(false)
 	arena.camera.set_physics_process(false)
-	check(arena.exploring() and arena.current_room == 0 and arena.opponent.hp == 0,"expedition starts in a safe room")
+	check(arena.exploring() and arena.current_room == 0 and not arena.guardians.has(0),"expedition starts in a safe room")
+	var initial_ids: Dictionary = {}
+	for index in arena.guardians:
+		initial_ids[index] = arena.guardians[index].get_instance_id()
+		check(arena.guardians[index].visible and arena.guardians[index].hp > 0,"guardian %d exists visibly before room entry" % index)
+		arena.guardians[index].think(0.01)
+		check(not arena.guardians[index].alerted,"distant guardian %d waits without aggro" % index)
 	var destination: Vector2 = Vector2(arena.dungeon.links[0][1]*Generator.STEP)*Generator.TILE
 	arena.player.position = Vector2.ZERO
 	await frames(2)
@@ -66,13 +72,17 @@ func run() -> void:
 	arena.player.position = arena.dungeon.rooms[battle].center
 	arena.update_exploration()
 	arena.opponent.set_physics_process(false)
-	check(arena.opponent.hp > 0 and arena.opponent.enemy_kind != "boss","battle room spawns a local guardian")
+	check(arena.opponent.hp > 0 and arena.opponent.enemy_kind != "boss","preplaced guardian becomes nearby combat target")
 	arena.opponent.hp = 40
 	arena.player.position = Vector2.ZERO
 	arena.update_exploration()
 	arena.player.position = arena.dungeon.rooms[battle].center
 	arena.update_exploration()
 	check(arena.opponent.hp == 40,"guardian HP survives leaving and returning")
+	var preserved := true
+	for index in initial_ids:
+		if arena.guardians[index].get_instance_id() != initial_ids[index]: preserved = false
+	check(preserved,"room travel never respawns or replaces preplaced guardians")
 	arena.opponent.hp = 0
 	arena.update_exploration()
 	arena.update_exploration()

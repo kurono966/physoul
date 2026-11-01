@@ -10,6 +10,11 @@ var move_speed := 165.0
 var has_shield := true
 var boss_enraged := false
 var boss_attack_count := 0
+var sprint_requested := false
+var sprinting := false
+var awareness_enabled := false
+var home_position := Vector2.ZERO
+var alerted := false
 var facing := 0.0
 var hp := 100.0
 var stamina := 100.0
@@ -272,6 +277,8 @@ func make_corpse() -> void:
 	drive_velocity = Vector2.ZERO
 	impulse_velocity = Vector2.ZERO
 	velocity = Vector2.ZERO
+	sprint_requested = false
+	sprinting = false
 
 func _physics_process(dt: float) -> void:
 	if hp <= 0:
@@ -301,6 +308,7 @@ func _physics_process(dt: float) -> void:
 		else:
 			var axis := Vector2(float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)), float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
 			movement = (axis.normalized()+arena.controls.movement()).limit_length(1).rotated(arena.camera.rotation)
+			if Input.is_action_just_pressed("pad_sprint"): sprint_requested = not sprint_requested
 			guard = (Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_action_pressed("pad_guard")) and critical_time <= 0 and stamina > 0 and not weapon.active and roll <= 0 and kick_time <= 0.3
 			if (Input.is_physical_key_pressed(KEY_SHIFT) or Input.is_action_just_pressed("pad_roll")) and not attack_movement_locked() and roll <= 0 and recovery <= 0.3 and spend(25):
 				roll = 0.46
@@ -308,10 +316,20 @@ func _physics_process(dt: float) -> void:
 				roll_direction = movement if movement.length() > 0 else forward()
 			if Input.is_physical_key_pressed(KEY_SPACE) or Input.is_action_just_pressed("pad_kick"): start_kick()
 	update_guard_timing((Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_action_pressed("pad_guard")) if not enemy else guard,dt)
+	if movement.length() < 0.15 or guard or attack_movement_locked() or roll > 0 or stun > 0:
+		sprint_requested = false
+	sprinting = not enemy and sprint_requested and stamina > 0
+	if sprinting:
+		stamina = maxf(0,stamina-18*dt)
+		recovery = 0.65
+		if stamina <= 0:
+			sprinting = false
+			sprint_requested = false
 	if recovery <= 0 and not weapon.active and roll <= 0:
 		stamina = minf(100, stamina + dt * (13 if guard else 26))
 	posture = maxf(0, posture - dt * (8 if guard else 15))
 	var speed := move_speed
+	if sprinting: speed *= 1.7
 	if guard: speed *= 0.48
 	if hp <= 0 or stun > 0: speed = 0
 	if attack_movement_locked():
@@ -347,6 +365,15 @@ func think(dt: float) -> Vector2:
 			facing = rotate_toward(facing,delta.angle(),dt*1.5)
 		guard = false
 		return Vector2.ZERO
+	if awareness_enabled:
+		var sight := PhysicsRayQueryParameters2D.create(global_position,target.global_position,1)
+		var visible := get_world_2d().direct_space_state.intersect_ray(sight).is_empty()
+		if delta.length() > 850: alerted = false
+		if not alerted and delta.length() <= 520 and visible: alerted = true
+		if not alerted or not visible:
+			guard = false
+			ai_state = "IDLE" if not alerted else "RETURN"
+			return global_position.direction_to(home_position)*0.5 if global_position.distance_to(home_position) > 12 else Vector2.ZERO
 	facing = rotate_toward(facing, delta.angle(), dt * (1.1 if weapon.active else 3.3))
 	var distance := delta.length()
 	var toward := delta.normalized()
