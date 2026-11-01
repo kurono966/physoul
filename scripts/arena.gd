@@ -6,6 +6,19 @@ const Hud = preload("res://scripts/hud.gd")
 const Sound = preload("res://scripts/sound.gd")
 const PropVisual = preload("res://scripts/prop_visual.gd")
 const Controls = preload("res://scripts/controls.gd")
+const MapGenerator = preload("res://scripts/map_generator.gd")
+@export var random_map := true
+@export var map_seed := -1
+var layout: Dictionary = {}
+
+func regenerate_map() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var replacement = load("res://arena.tscn").instantiate()
+	replacement.map_seed = rng.randi()
+	get_tree().root.add_child(replacement)
+	get_tree().current_scene = replacement
+	queue_free()
 var controls: Node
 var sound: Node
 var player: CharacterBody2D
@@ -43,13 +56,25 @@ func select_enemy(index: int) -> void:
 	event_text = "CHALLENGER / " + opponent.title
 
 func _ready() -> void:
+	if map_seed < 0:
+		if get_tree().has_meta("physoul_map_seed"): map_seed = int(get_tree().get_meta("physoul_map_seed"))
+		else:
+			var rng := RandomNumberGenerator.new()
+			rng.randomize()
+			map_seed = rng.randi()
+	get_tree().set_meta("physoul_map_seed",map_seed)
+	if random_map:
+		layout = MapGenerator.generate(map_seed)
+	else:
+		layout = {"pillars":[Rect2(-280,-150,56,100),Rect2(225,65,56,100),Rect2(-310,230,72,72),Rect2(275,-310,72,72)],"crates":[Vector2(-140,-120),Vector2(165,-185),Vector2(330,260),Vector2(-400,-310)],"ring_radius":190.0,"light":Vector2(-100,-120),"tile_phase":0.0}
 	controls = Controls.new()
 	add_child(controls)
 	sound = Sound.new()
 	add_child(sound)
-	for rect in [Rect2(-650,-510,1300,30),Rect2(-650,480,1300,30),Rect2(-650,-480,30,960),Rect2(620,-480,30,960),Rect2(-280,-150,56,100),Rect2(225,65,56,100),Rect2(-310,230,72,72),Rect2(275,-310,72,72)]:
+	for rect in [Rect2(-650,-510,1300,30),Rect2(-650,480,1300,30),Rect2(-650,-480,30,960),Rect2(620,-480,30,960)]:
 		wall(rect)
-	for pos in [Vector2(-140,-120),Vector2(165,-185),Vector2(330,260),Vector2(-400,-310)]:
+	for rect in layout.pillars: wall(rect)
+	for pos in layout.crates:
 		var box := RigidBody2D.new()
 		box.position = pos
 		box.mass = 4
@@ -127,21 +152,22 @@ func _draw() -> void:
 	draw_rect(Rect2(-620,-480,1240,960),Color("151f28"))
 	for x in range(-600,600,60):
 		for y in range(-480,480,60):
-			var tint := 0.015+0.01*sin(x*0.021+y*0.017)
+			var tint := 0.015+0.01*sin(x*0.021+y*0.017+float(layout.get("tile_phase",0)))
 			draw_rect(Rect2(x+1,y+1,58,58),Color(0.4,0.48,0.52,tint))
 	# Soft, fixed world-space pools of light keep the center legible.
 	for i in range(24,0,-1):
-		draw_circle(Vector2(-100,-120),float(i)*20,Color(0.46,0.63,0.69,0.006))
+		draw_circle(layout.get("light",Vector2(-100,-120)),float(i)*20,Color(0.46,0.63,0.69,0.006))
 		draw_circle(Vector2(220,190),float(i)*12,Color(0.72,0.54,0.32,0.003))
 	for x in range(-600, 620, 60):
 		draw_line(Vector2(x,-480),Vector2(x,480),Color(0.16,0.2,0.24,0.3))
 	for y in range(-480, 500, 60):
 		draw_line(Vector2(-620,y),Vector2(620,y),Color(0.16,0.2,0.24,0.3))
-	draw_arc(Vector2.ZERO, 190, 0, TAU, 100, Color(0.32,0.38,0.4,0.4), 2)
-	draw_arc(Vector2.ZERO, 198, 0, TAU, 100, Color(0.32,0.38,0.4,0.18), 1,true)
+	var ring: float = layout.get("ring_radius",190.0)
+	draw_arc(Vector2.ZERO, ring, 0, TAU, 100, Color(0.32,0.38,0.4,0.4), 2)
+	draw_arc(Vector2.ZERO, ring+8, 0, TAU, 100, Color(0.32,0.38,0.4,0.18), 1,true)
 	for i in 16:
 		var radial := Vector2.RIGHT.rotated(i*TAU/16)
-		draw_line(radial*205,radial*215,Color("52616a"),2,true)
+		draw_line(radial*(ring+15),radial*(ring+25),Color("52616a"),2,true)
 	draw_rect(Rect2(-600,-460,1200,920),Color("475762"),false,2)
 	for spark in sparks:
 		for i in 7:

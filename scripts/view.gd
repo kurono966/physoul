@@ -32,6 +32,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_H: arena.controls.help_visible = not arena.controls.help_visible
 			KEY_R: get_tree().reload_current_scene()
 			KEY_N: arena.next_enemy()
+			KEY_M: arena.call_deferred("regenerate_map")
 			KEY_1: arena.select_enemy(0)
 			KEY_2: arena.select_enemy(1)
 			KEY_3: arena.select_enemy(2)
@@ -51,6 +52,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		locked = not locked
 	if event is InputEventJoypadButton and event.pressed:
 		if event.button_index == JOY_BUTTON_BACK: arena.controls.help_visible = not arena.controls.help_visible
+		if event.button_index == JOY_BUTTON_DPAD_UP: arena.call_deferred("regenerate_map")
 		if event.is_action("pad_lock"): locked = not locked
 		if event.is_action("pad_restart"): get_tree().reload_current_scene()
 		if event.is_action("pad_next"): arena.next_enemy()

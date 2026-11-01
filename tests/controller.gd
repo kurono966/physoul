@@ -22,6 +22,7 @@ func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
 	arena = load("res://arena.tscn").instantiate()
+	arena.random_map = false
 	root.add_child(arena)
 	await frames(2)
 	arena.opponent.set_physics_process(false)

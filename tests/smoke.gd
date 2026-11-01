@@ -36,6 +36,7 @@ func setup_duel() -> void:
 
 func run() -> void:
 	arena = load("res://arena.tscn").instantiate()
+	arena.random_map = false
 	root.add_child(arena)
 	await frames(5)
 	check(arena.player.hp == 100,"scene loads with live fighters")
@@ -100,6 +101,7 @@ func run() -> void:
 	arena.queue_free()
 	await process_frame
 	arena = load("res://arena.tscn").instantiate()
+	arena.random_map = false
 	root.add_child(arena)
 	await frames(5)
 	check(arena.opponent.hp == 100 and arena.player.hp == 100,"fresh scene resets duel")

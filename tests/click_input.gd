@@ -3,6 +3,7 @@ func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
 	var arena = load("res://arena.tscn").instantiate()
+	arena.random_map = false
 	root.add_child(arena)
 	await physics_frame
 	arena.player.set_physics_process(false)

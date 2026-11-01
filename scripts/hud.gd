@@ -54,6 +54,7 @@ func paint() -> void:
 			text_at(Vector2(30,size.y-50),"WASD Move   Mouse Turn   LMB Click: Slash / Hold: Prepare + Auto Thrust   RMB Guard",16)
 		text_at(Vector2(30,size.y-23),"SHIFT Roll   SPACE Kick   TAB / MMB Lock   1–4 Enemy   N Next   ESC Cursor   F3 Debug   R Restart  H Help",16)
 	text_at(Vector2(30,151),arena.event_text,14,Color("e5d4ae"))
+	text_at(Vector2(30,172),"MAP %d  /  %s" % [arena.map_seed,"D-PAD UP: NEW" if arena.controls.using_pad else "M: NEW  ·  R: RETRY"],11,Color("91a7af"))
 	if OS.has_feature("web") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not arena.controls.using_pad:
 		text_at(Vector2(size.x/2-160,size.y/2-60),"CLICK TO CAPTURE MOUSE / ESC TO RELEASE",15,Color("e5d4ae"))
 	if arena.player.just_guard_flash > 0:

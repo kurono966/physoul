@@ -12,6 +12,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	var arena = load("res://arena.tscn").instantiate()
+	arena.random_map = false
 	root.add_child(arena)
 	await physics_frame
 	var click := InputEventMouseButton.new()

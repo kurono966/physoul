@@ -5,6 +5,7 @@ func _initialize() -> void:
 
 func run() -> void:
 	var arena = load("res://arena.tscn").instantiate()
+	arena.random_map = false
 	root.add_child(arena)
 	arena.player.set_physics_process(false)
 	arena.opponent.set_physics_process(false)
